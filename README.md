@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/CaffCore/5.4.0.17399.png)](https://travis-ci.org/CaffCore/5.4.0.17399)
+[![Build Status](https://api.travis-ci.org/CaffCore/5.4.0.17399.png)](https://travis-ci.org/CaffCore/5.4.0.17399)
 
 This emulator is based on a version of TrinityCore
 
