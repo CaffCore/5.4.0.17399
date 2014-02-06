@@ -2941,7 +2941,7 @@ public:
     }
 };
 
-#define GOSSIP_SELECT_FACTION "Je suis pret a prendre ma decision."
+#define GOSSIP_SELECT_FACTION "I am ready to make my decision."
 
 class npc_neutral_faction_select : public CreatureScript
 {
