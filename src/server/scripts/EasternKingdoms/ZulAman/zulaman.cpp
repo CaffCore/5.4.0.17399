@@ -315,7 +315,7 @@ class npc_harrison_jones : public CreatureScript
                     me->SetDisplayId(MODEL_HARRISON_JONES_2);
                     me->SetTarget(0);
                     me->SetByteValue(UNIT_FIELD_BYTES_1, 0, UNIT_STAND_STATE_DEAD);
-                    me->SetFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_DEAD);
+                    me->SetFlag(OBJECT_DYNAMIC_FLAGS, UNIT_DYNFLAG_DEAD);
                     if (instance)
                         instance->SetData(DATA_GONGEVENT, DONE);
                 }

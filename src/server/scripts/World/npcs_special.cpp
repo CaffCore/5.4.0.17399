@@ -765,7 +765,7 @@ public:
                 me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IN_COMBAT);
                 me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
                 me->setDeathState(JUST_DIED);
-                me->SetFlag(UNIT_DYNAMIC_FLAGS, 32);
+                me->SetFlag(OBJECT_DYNAMIC_FLAGS, 32);
 
                 if (DoctorGUID)
                     if (Creature* doctor = Unit::GetCreature((*me), DoctorGUID))
@@ -2941,7 +2941,7 @@ public:
     }
 };
 
-#define GOSSIP_SELECT_FACTION "Je suis pret a prendre ma decision."
+#define GOSSIP_SELECT_FACTION "I am ready to make my decision."
 
 class npc_neutral_faction_select : public CreatureScript
 {

@@ -171,7 +171,7 @@ public:
                     instance->SetData(DATA_EREDAR_TWINS_EVENT, DONE);
             }
             else
-                me->RemoveFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
+                me->RemoveFlag(OBJECT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
         }
 
         void SpellHitTarget(Unit* target, const SpellInfo* spell)
@@ -463,7 +463,7 @@ public:
                     instance->SetData(DATA_EREDAR_TWINS_EVENT, DONE);
             }
             else
-                me->RemoveFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
+                me->RemoveFlag(OBJECT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
         }
 
         void SpellHitTarget(Unit* target, const SpellInfo* spell)

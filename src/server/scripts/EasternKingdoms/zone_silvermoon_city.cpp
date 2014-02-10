@@ -96,7 +96,7 @@ public:
                 CAST_PLR(Hitter)->AreaExploredOrEventHappens(QUEST_REDEEMING_THE_DEAD);
                 DoCast(me, SPELL_REVIVE_SELF);
                 me->SetStandState(UNIT_STAND_STATE_STAND);
-                me->SetUInt32Value(UNIT_DYNAMIC_FLAGS, 0);
+                me->SetUInt32Value(OBJECT_DYNAMIC_FLAGS, 0);
                 //me->RemoveAllAuras();
                 Talk(SAY_HEAL);
                 spellHit = true;

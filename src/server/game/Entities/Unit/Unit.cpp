@@ -10587,8 +10587,8 @@ void Unit::ClearInCombat()
             SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC); // set immunity state to the one from db on evade
 
         ClearUnitState(UNIT_STATE_ATTACK_PLAYER);
-        if (HasFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_TAPPED))
-            SetUInt32Value(UNIT_DYNAMIC_FLAGS, creature->GetCreatureTemplate()->dynamicflags);
+        if (HasFlag(OBJECT_DYNAMIC_FLAGS, UNIT_DYNFLAG_TAPPED))
+            SetUInt32Value(OBJECT_DYNAMIC_FLAGS, creature->GetCreatureTemplate()->dynamicflags);
 
         if (creature->isPet())
         {
@@ -13922,9 +13922,9 @@ void Unit::ApplyMeleeHastePercentMod(float val, bool apply)
 void Unit::ApplyRangedHastePercentMod(float val, bool apply)
 {
     if (val > 0)
-        ApplyPercentModFloatValue(PLAYER_FIELD_MOD_RANGED_HASTE, val, !apply);
+        ApplyPercentModFloatValue(8+0x0716, val, !apply);
     else
-        ApplyPercentModFloatValue(PLAYER_FIELD_MOD_RANGED_HASTE, -val, apply);
+        ApplyPercentModFloatValue(8+0x0716, -val, apply);
 }
 
 uint32 Unit::GetCastingTimeForBonus(SpellInfo const* spellProto, DamageEffectType damagetype, uint32 CastingTime) const
@@ -14596,7 +14596,7 @@ void Unit::Kill(Unit* victim, bool durabilityLoss)
             creature->DeleteThreatList();
             CreatureTemplate const* cInfo = creature->GetCreatureTemplate();
             if (cInfo && (cInfo->lootid || cInfo->maxgold > 0))
-                creature->SetFlag(UNIT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
+                creature->SetFlag(OBJECT_DYNAMIC_FLAGS, UNIT_DYNFLAG_LOOTABLE);
         }
 
         // Call KilledUnit for creatures, this needs to be called after the lootable flag is set
