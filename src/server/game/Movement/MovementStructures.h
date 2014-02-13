@@ -195,7 +195,7 @@ MovementStatusElements PlayerMoveSequence[] =
     MSEEnd,
 };
 
-//5.1.0 16357 OK
+//5.4.0
 MovementStatusElements MovementFallLandSequence[] =
 {
     MSEPositionZ,
@@ -358,7 +358,7 @@ MovementStatusElements MovementFallResetSequence[] =
     MSEEnd,
 };
 
-//5.1.0 16357 OK
+//5.4.0
 MovementStatusElements MovementHeartBeatSequence[] =
 {
    MSEPositionZ,
@@ -444,7 +444,7 @@ MovementStatusElements MovementHeartBeatSequence[] =
     MSEEnd,
 };
 
-//5.1.0 16357 OK
+//5.4.0
 MovementStatusElements MovementJumpSequence[] =
 {
     MSEPositionX,
@@ -530,7 +530,7 @@ MovementStatusElements MovementJumpSequence[] =
     MSEEnd,
 };
 
-//5.1.0 16357 OK
+//5.4.0
 MovementStatusElements MovementSetFacingSequence[] =
 {
 	 MSEPositionY,
@@ -617,7 +617,7 @@ MovementStatusElements MovementSetFacingSequence[] =
     MSEEnd,
 };
 
-//5.1.0 16357 OK
+//5.4.0
 MovementStatusElements MovementSetPitchSequence[] =
 {
     MSEPositionY,
@@ -703,7 +703,7 @@ MovementStatusElements MovementSetPitchSequence[] =
     MSEEnd,
 };
 
-//5.1.0 16357 OK
+//5.4.0
 MovementStatusElements MovementStartBackwardSequence[] =
 {
     MSEPositionX,
@@ -788,7 +788,7 @@ MovementStatusElements MovementStartBackwardSequence[] =
     MSEEnd,
 };
 
-//5.1.0 16357 OK
+//5.4.0
 MovementStatusElements MovementStartForwardSequence[] =
 {
     MSEPositionZ,
@@ -874,7 +874,7 @@ MovementStatusElements MovementStartForwardSequence[] =
     MSEEnd,
 };
 
-//5.1.0 16357 OK
+//5.4.0
 MovementStatusElements MovementStartStrafeLeftSequence[] =
 {
     MSEPositionZ,
@@ -959,7 +959,7 @@ MovementStatusElements MovementStartStrafeLeftSequence[] =
 
 };
 
-//5.1.0 16357 OK
+//5.4.0
 MovementStatusElements MovementStartStrafeRightSequence[] =
 {
     MSEPositionZ,
@@ -1045,7 +1045,7 @@ MovementStatusElements MovementStartStrafeRightSequence[] =
     MSEEnd,
 };
 
-//5.1.0 16357 OK
+//5.4.0
 MovementStatusElements MovementStartTurnLeftSequence[] =
 {
     MSEPositionZ,
@@ -1132,7 +1132,7 @@ MovementStatusElements MovementStartTurnLeftSequence[] =
     MSEEnd,
 };
 
-//5.1.0 16357 OK
+//5.4.0
 MovementStatusElements MovementStartTurnRightSequence[] =
 {
     MSEPositionX,
@@ -1219,7 +1219,7 @@ MovementStatusElements MovementStartTurnRightSequence[] =
     MSEEnd,
 };
 
-//5.1.0 16357 OK
+//5.4.0
 MovementStatusElements MovementStopSequence[] =
 {
     MSEPositionX,
@@ -1304,7 +1304,7 @@ MovementStatusElements MovementStopSequence[] =
     MSEEnd,
 };
 
-//5.1.0 16357 OK
+//5.4.0
 MovementStatusElements MovementStopStrafeSequence[] =
 {
     MSEPositionY,
@@ -1390,7 +1390,7 @@ MovementStatusElements MovementStopStrafeSequence[] =
     MSEEnd,
 };
 
-//5.1.0 16357 OK
+//5.4.0
 MovementStatusElements MovementStopTurnSequence[] =
 {
     MSEPositionX,
@@ -1476,7 +1476,7 @@ MovementStatusElements MovementStopTurnSequence[] =
     MSEEnd,
 };
 
-//5.1.0 16357 OK
+//5.4.0
 MovementStatusElements MovementStartAscendSequence[] =
 {
     MSEPositionX,
@@ -1562,7 +1562,7 @@ MovementStatusElements MovementStartAscendSequence[] =
     MSEEnd,
 };
 
-//5.1.0 16357 OK
+//5.4.0
 MovementStatusElements MovementStartDescendSequence[] =
 {
     MSEPositionZ,
@@ -1647,7 +1647,7 @@ MovementStatusElements MovementStartDescendSequence[] =
     MSEEnd,
 };
 
-//5.1.0 16357 OK
+//5.4.0
 MovementStatusElements MovementStartSwimSequence[] =
 {
     MSEPositionY,
@@ -1732,7 +1732,7 @@ MovementStatusElements MovementStartSwimSequence[] =
     MSEEnd,
 };
 
-//5.1.0 16357 OK
+//5.4.0
 MovementStatusElements MovementStopSwimSequence[] =
 {
     MSEPositionX,
@@ -1817,7 +1817,7 @@ MovementStatusElements MovementStopSwimSequence[] =
 
 };
 
-//5.1.0 16357 OK
+//5.4.0
 MovementStatusElements MovementStopAscendSequence[] =
 {
     MSEPositionX,
@@ -1903,7 +1903,7 @@ MovementStatusElements MovementStopAscendSequence[] =
     MSEEnd,
 };
 
-//5.1.0 16357 OK
+//5.4.0
 MovementStatusElements MovementStopPitchSequence[] =
 {
 	MSEPositionX,
@@ -1988,7 +1988,7 @@ MovementStatusElements MovementStopPitchSequence[] =
     MSEEnd,
 };
 
-//5.1.0 16357 OK
+//5.4.0
 MovementStatusElements MovementStartPitchDownSequence[] =
 {
     MSEPositionX,
@@ -2074,7 +2074,7 @@ MovementStatusElements MovementStartPitchDownSequence[] =
     MSEEnd,
 };
 
-//5.1.0 16357
+//5.4.0
 MovementStatusElements MovementStartPitchUpSequence[] =
 {
     MSEPositionX,
@@ -2160,7 +2160,7 @@ MovementStatusElements MovementStartPitchUpSequence[] =
     MSEEnd,
 };
 
-//5.1.0 16357 OK
+//5.4.0
 MovementStatusElements MoveChngTransport[]=
 {
     MSEPositionZ,
@@ -2246,7 +2246,7 @@ MovementStatusElements MoveChngTransport[]=
     MSEEnd,
 };
 
-//5.1.0 16357 OK
+//5.4.0
 MovementStatusElements MoveSplineDone[] =
 {
     MSEPositionX,
