@@ -2352,16 +2352,14 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
             {
                 // send transfer packets
                 WorldPacket data(SMSG_TRANSFER_PENDING, 4 + 4 + 4);
-                data.WriteBit(0);       // unknown
-                if (m_transport)
-                {
-                    data.WriteBit(1);   // has transport
-                    data << GetMapId() << m_transport->GetEntry();
-                }
-                else
-                    data.WriteBit(0);   // has transport
-
                 data << uint32(mapid);
+                data.WriteBit(0);       // unknown
+                data.WriteBit(m_transport != 0);
+                data.FlushBits();
+
+                if (m_transport)
+                    data << GetMapId() << m_transport->GetEntry() ;
+
                 GetSession()->SendPacket(&data);
             }
 
@@ -2391,11 +2389,11 @@ bool Player::TeleportTo(uint32 mapid, float x, float y, float z, float orientati
             if (!GetSession()->PlayerLogout())
             {
                 WorldPacket data(SMSG_NEW_WORLD, 4 + 4 + 4 + 4 + 4);
+                data << float(m_teleport_dest.GetPositionZ());
                 data << uint32(mapid);
                 data << float(m_teleport_dest.GetPositionY());
-                data << float(m_teleport_dest.GetOrientation());
                 data << float(m_teleport_dest.GetPositionX());
-                data << float(m_teleport_dest.GetPositionZ());
+                data << float(m_teleport_dest.GetOrientation());
 
                 GetSession()->SendPacket(&data);
                 SendSavedInstances();
@@ -3629,12 +3627,22 @@ void Player::SendInitialSpells()
     time_t curTime = time(NULL);
     time_t infTime = curTime + infinityCooldownDelayCheck;
 
-    uint32 spellCount = 0;
+    uint16 spellCount = 0;
 
-    WorldPacket data(SMSG_INITIAL_SPELLS/*, (1+2+4*m_spells.size()+m_spellCooldowns.size()*(2+2+2+4+4))*/);
+    WorldPacket data(SMSG_INITIAL_SPELLS, (1+2+4*m_spells.size()+2+m_spellCooldowns.size()*(2+2+2+4+4)));
 
-    size_t countPos = data.bitwpos();
-    data.WriteBits(spellCount, 24);
+    for (PlayerSpellMap::const_iterator itr = m_spells.begin(); itr != m_spells.end(); ++itr)
+    {
+        if (itr->second->state == PLAYERSPELL_REMOVED)
+            continue;
+
+        if (!itr->second->active || itr->second->disabled)
+            continue;
+
+        ++spellCount;
+    }
+
+    data.WriteBits(spellCount, 22);
     data.WriteBit(1);
     data.FlushBits();
 
@@ -3643,15 +3651,11 @@ void Player::SendInitialSpells()
         if (itr->second->state == PLAYERSPELL_REMOVED)
             continue;
 
-        if (!itr->second->active || itr->second->disabled)    
+        if (!itr->second->active || itr->second->disabled)
             continue;
 
         data << uint32(itr->first);
-
-        ++spellCount;
     }
-   
-    data.PutBits<uint32>(countPos, spellCount, 24);          // write real count value
 
     //WorldPacket data(SMSG_PET_SPELLS/*, (1+2+4*m_spells.size()+m_spellCooldowns.size()*(2+2+2+4+4))*/);
 
@@ -4226,22 +4230,17 @@ void Player::learnSpell(uint32 spell_id, bool dependent)
     bool learning = addSpell(spell_id, active, true, dependent, false);
 
     // prevent duplicated entires in spell book, also not send if not in world (loading)
-    if (learning)
-    {
-        /* SEEMS THAT CLIENT WORKS ALREADY WITH IT WITHOUT THAT CHECK ON SERVER
-        uint32 replaceSpell = GetSpecializationReplaceSpellBySpell(spell_id);
-        if(replaceSpell != 0)
-            removeSpell(replaceSpell, false, false);
-        */
-        if(IsInWorld())
+    if (learning && IsInWorld())
+
         {
-            WorldPacket data(SMSG_LEARNED_SPELL, 1+3+4);
-            data.WriteBit(0);
-            data.WriteBits(1, 24); // Spell Count
-            data << uint32(spell_id);
-            GetSession()->SendPacket(&data);
+            WorldPacket data(SMSG_LEARNED_SPELL, 8);
+        data.WriteBit(0);
+        data.WriteBits(1, 22);
+        data.FlushBits();
+        data << uint32(spell_id);
+        GetSession()->SendPacket(&data);
         }
-    }
+    
 
     // learn all disabled higher ranks and required spells (recursive)
     if (disabled)
@@ -6792,74 +6791,189 @@ int16 Player::GetSkillTempBonusValue(uint32 skill) const
 
 void Player::SendActionButtons(uint32 state) const
 {
-    WorldPacket data(SMSG_ACTION_BUTTONS, 1+(MAX_ACTION_BUTTONS*8));
-
-    uint8 buttons [MAX_ACTION_BUTTONS][8];
-    ActionButtonPACKET* buttonsTab = (ActionButtonPACKET*)buttons;
-    memset(buttons, 0, MAX_ACTION_BUTTONS*8);
-
-    for (uint8 i = 0; i < MAX_ACTION_BUTTONS; ++i)
+    WorldPacket data(SMSG_ACTION_BUTTONS, 1+(MAX_ACTION_BUTTONS*4));
+   
+    if (state != 2)
     {
-        ActionButton const* ab = ((Player*)this)->GetActionButton(i);
-        if (!ab)
+        //Masks
+        for (uint8 button = 0; button < MAX_ACTION_BUTTONS; ++button)
         {
-            buttonsTab[i].id = 0;
-            buttonsTab[i].unk = 0;
-            continue;
+            ActionButtonList::const_iterator itr = m_actionButtons.find(button);
+            ObjectGuid packed = uint64(0);
+            if (itr != m_actionButtons.end() && itr->second.uState != ACTIONBUTTON_DELETED)
+            {
+                packed = uint64(itr->second.packedData);
+            }
+
+            data.WriteBit(packed[7]);
         }
+        for (uint8 button = 0; button < MAX_ACTION_BUTTONS; ++button)
+        {
+            ActionButtonList::const_iterator itr = m_actionButtons.find(button);
+            ObjectGuid packed = uint64(0);
+            if (itr != m_actionButtons.end() && itr->second.uState != ACTIONBUTTON_DELETED)
+            {
+                packed = uint64(itr->second.packedData);
+            }
 
-        buttonsTab[i].id = ab->GetAction();
-        buttonsTab[i].unk = uint32(ab->GetType());
+            data.WriteBit(packed[2]);
+        }
+        for (uint8 button = 0; button < MAX_ACTION_BUTTONS; ++button)
+        {
+            ActionButtonList::const_iterator itr = m_actionButtons.find(button);
+            ObjectGuid packed = uint64(0);
+            if (itr != m_actionButtons.end() && itr->second.uState != ACTIONBUTTON_DELETED)
+            {
+                packed = uint64(itr->second.packedData);
+            }
+
+            data.WriteBit(packed[1]);
+        }
+        for (uint8 button = 0; button < MAX_ACTION_BUTTONS; ++button)
+        {
+            ActionButtonList::const_iterator itr = m_actionButtons.find(button);
+            ObjectGuid packed = uint64(0);
+            if (itr != m_actionButtons.end() && itr->second.uState != ACTIONBUTTON_DELETED)
+            {
+                packed = uint64(itr->second.packedData);
+            }
+
+            data.WriteBit(packed[6]);
+        }
+        for (uint8 button = 0; button < MAX_ACTION_BUTTONS; ++button)
+        {
+            ActionButtonList::const_iterator itr = m_actionButtons.find(button);
+            ObjectGuid packed = uint64(0);
+            if (itr != m_actionButtons.end() && itr->second.uState != ACTIONBUTTON_DELETED)
+            {
+                packed = uint64(itr->second.packedData);
+            }
+
+            data.WriteBit(packed[3]);
+        }
+        for (uint8 button = 0; button < MAX_ACTION_BUTTONS; ++button)
+        {
+            ActionButtonList::const_iterator itr = m_actionButtons.find(button);
+            ObjectGuid packed = uint64(0);
+            if (itr != m_actionButtons.end() && itr->second.uState != ACTIONBUTTON_DELETED)
+            {
+                packed = uint64(itr->second.packedData);
+            }
+
+            data.WriteBit(packed[4]);
+        }
+        for (uint8 button = 0; button < MAX_ACTION_BUTTONS; ++button)
+        {
+            ActionButtonList::const_iterator itr = m_actionButtons.find(button);
+            ObjectGuid packed = uint64(0);
+            if (itr != m_actionButtons.end() && itr->second.uState != ACTIONBUTTON_DELETED)
+            {
+                packed = uint64(itr->second.packedData);
+            }
+
+            data.WriteBit(packed[5]);
+        }
+        for (uint8 button = 0; button < MAX_ACTION_BUTTONS; ++button)
+        {
+            ActionButtonList::const_iterator itr = m_actionButtons.find(button);
+            ObjectGuid packed = uint64(0);
+            if (itr != m_actionButtons.end() && itr->second.uState != ACTIONBUTTON_DELETED)
+            {
+                packed = uint64(itr->second.packedData);
+            }
+
+            data.WriteBit(packed[0]);
+        }
+        //GUIDS
+        for (uint8 button = 0; button < MAX_ACTION_BUTTONS; ++button)
+        {
+            ActionButtonList::const_iterator itr = m_actionButtons.find(button);
+            ObjectGuid packed = uint64(0);
+            if (itr != m_actionButtons.end() && itr->second.uState != ACTIONBUTTON_DELETED)
+            {
+                packed = uint64(itr->second.packedData);
+            }
+
+            data.WriteByteSeq(packed[3]);
+        }
+        for (uint8 button = 0; button < MAX_ACTION_BUTTONS; ++button)
+        {
+            ActionButtonList::const_iterator itr = m_actionButtons.find(button);
+            ObjectGuid packed = uint64(0);
+            if (itr != m_actionButtons.end() && itr->second.uState != ACTIONBUTTON_DELETED)
+            {
+                packed = uint64(itr->second.packedData);
+            }
+
+            data.WriteByteSeq(packed[1]);
+        }
+        for (uint8 button = 0; button < MAX_ACTION_BUTTONS; ++button)
+        {
+            ActionButtonList::const_iterator itr = m_actionButtons.find(button);
+            ObjectGuid packed = uint64(0);
+            if (itr != m_actionButtons.end() && itr->second.uState != ACTIONBUTTON_DELETED)
+            {
+                packed = uint64(itr->second.packedData);
+            }
+
+            data.WriteByteSeq(packed[4]);
+        }
+        for (uint8 button = 0; button < MAX_ACTION_BUTTONS; ++button)
+        {
+            ActionButtonList::const_iterator itr = m_actionButtons.find(button);
+            ObjectGuid packed = uint64(0);
+            if (itr != m_actionButtons.end() && itr->second.uState != ACTIONBUTTON_DELETED)
+            {
+                packed = uint64(itr->second.packedData);
+            }
+
+            data.WriteByteSeq(packed[5]);
+        }
+        for (uint8 button = 0; button < MAX_ACTION_BUTTONS; ++button)
+        {
+            ActionButtonList::const_iterator itr = m_actionButtons.find(button);
+            ObjectGuid packed = uint64(0);
+            if (itr != m_actionButtons.end() && itr->second.uState != ACTIONBUTTON_DELETED)
+            {
+                packed = uint64(itr->second.packedData);
+            }
+
+            data.WriteByteSeq(packed[6]);
+        }
+        for (uint8 button = 0; button < MAX_ACTION_BUTTONS; ++button)
+        {
+            ActionButtonList::const_iterator itr = m_actionButtons.find(button);
+            ObjectGuid packed = uint64(0);
+            if (itr != m_actionButtons.end() && itr->second.uState != ACTIONBUTTON_DELETED)
+            {
+                packed = uint64(itr->second.packedData);
+            }
+
+            data.WriteByteSeq(packed[2]);
+        }
+        for (uint8 button = 0; button < MAX_ACTION_BUTTONS; ++button)
+        {
+            ActionButtonList::const_iterator itr = m_actionButtons.find(button);
+            ObjectGuid packed = uint64(0);
+            if (itr != m_actionButtons.end() && itr->second.uState != ACTIONBUTTON_DELETED)
+            {
+                packed = uint64(itr->second.packedData);
+            }
+
+            data.WriteByteSeq(packed[7]);
+        }
+        for (uint8 button = 0; button < MAX_ACTION_BUTTONS; ++button)
+        {
+            ActionButtonList::const_iterator itr = m_actionButtons.find(button);
+            ObjectGuid packed = uint64(0);
+            if (itr != m_actionButtons.end() && itr->second.uState != ACTIONBUTTON_DELETED)
+            {
+                packed = uint64(itr->second.packedData);
+            }
+
+            data.WriteByteSeq(packed[0]);
+        }
     }
-
-    for (uint8 i = 0; i < MAX_ACTION_BUTTONS; ++i)
-        data.WriteBit(buttons[i][4]);
-
-    for (uint8 i = 0; i < MAX_ACTION_BUTTONS; ++i)
-        data.WriteBit(buttons[i][0]);
-
-    for (uint8 i = 0; i < MAX_ACTION_BUTTONS; ++i)
-        data.WriteBit(buttons[i][7]);
-
-    for (uint8 i = 0; i < MAX_ACTION_BUTTONS; ++i)
-        data.WriteBit(buttons[i][2]);
-
-    for (uint8 i = 0; i < MAX_ACTION_BUTTONS; ++i)
-        data.WriteBit(buttons[i][6]);
-
-    for (uint8 i = 0; i < MAX_ACTION_BUTTONS; ++i)
-        data.WriteBit(buttons[i][3]);
-
-    for (uint8 i = 0; i < MAX_ACTION_BUTTONS; ++i)
-        data.WriteBit(buttons[i][1]);
-
-    for (uint8 i = 0; i < MAX_ACTION_BUTTONS; ++i)
-        data.WriteBit(buttons[i][5]);
-
-
-    for (uint8 i = 0; i < MAX_ACTION_BUTTONS; ++i)
-        data.WriteByteSeq(buttons[i][0]);
-
-    for (uint8 i = 0; i < MAX_ACTION_BUTTONS; ++i)
-        data.WriteByteSeq(buttons[i][3]);
-
-    for (uint8 i = 0; i < MAX_ACTION_BUTTONS; ++i)
-        data.WriteByteSeq(buttons[i][5]);
-
-    for (uint8 i = 0; i < MAX_ACTION_BUTTONS; ++i)
-        data.WriteByteSeq(buttons[i][7]);
-
-    for (uint8 i = 0; i < MAX_ACTION_BUTTONS; ++i)
-        data.WriteByteSeq(buttons[i][6]);
-
-    for (uint8 i = 0; i < MAX_ACTION_BUTTONS; ++i)
-        data.WriteByteSeq(buttons[i][1]);
-
-    for (uint8 i = 0; i < MAX_ACTION_BUTTONS; ++i)
-        data.WriteByteSeq(buttons[i][4]);
-
-    for (uint8 i = 0; i < MAX_ACTION_BUTTONS; ++i)
-        data.WriteByteSeq(buttons[i][2]);
 
     data << uint8(state);
     GetSession()->SendPacket(&data);
@@ -9672,9 +9786,9 @@ void Player::SendNotifyLootItemRemoved(uint8 lootSlot, ObjectGuid guid)
 void Player::SendUpdateWorldState(uint32 Field, uint32 Value)
 {
     WorldPacket data(SMSG_UPDATE_WORLD_STATE, 4+4+1);
+	data << uint8(0);
     data << Field;
-    data << Value;
-    data << uint8(0);
+    data << Value;    
     GetSession()->SendPacket(&data);
 }
 
@@ -23333,8 +23447,14 @@ void Player::SendInitialPacketsBeforeAddToMap()
 
     SendTalentsInfoData(false);
 
+    uint32 l_OldSpellCount = 0;
     data.Initialize(SMSG_SEND_UNLEARN_SPELLS, 4);
-    data << uint32(0);                                      // count, for (count) uint32;
+    data.WriteBits(l_OldSpellCount, 22);    // Old spell count
+    data.FlushBits();
+
+    for (uint32 l_I = 0 ; l_I < l_OldSpellCount ; ++l_I)
+        data << uint32(0);                  // Old spell id
+
     GetSession()->SendPacket(&data);
 
     SendInitialActionButtons();
@@ -23344,11 +23464,11 @@ void Player::SendInitialPacketsBeforeAddToMap()
     SendEquipmentSetList();
 
     data.Initialize(SMSG_LOGIN_SETTIMESPEED, 4 + 4 + 4 + 4 + 4);
-    data.AppendPackedTime(sWorld->GetGameTime());           // added in 5.x.x
-    data.AppendPackedTime(sWorld->GetGameTime());
     data << float(0.01666667f);                             // game speed
+    data.AppendPackedTime(sWorld->GetGameTime());
     data << uint32(1);                                      // added in 3.1.2
-    data << uint32(1);                                      // added in 5.x.x
+    data << uint32(1);                                      // added in 3.1.2
+    data.AppendPackedTime(sWorld->GetGameTime());
     GetSession()->SendPacket(&data);
 
     GetReputationMgr().SendForceReactions();                // SMSG_SET_FORCED_REACTIONS
@@ -23438,8 +23558,10 @@ void Player::SendUpdateToOutOfRangeGroupMembers()
 void Player::SendTransferAborted(uint32 mapid, TransferAbortReason reason, uint8 arg)
 {
     WorldPacket data(SMSG_TRANSFER_ABORTED, 4+2);
+    data.WriteBits(reason, 5); // transfer abort reason
+    data.WriteBit(!arg);
+    data.FlushBits();
     data << uint32(mapid);
-    data << uint8(reason); // transfer abort reason
     data << uint8(arg);
     GetSession()->SendPacket(&data);
 }
@@ -24355,27 +24477,10 @@ void Player::ResurectUsingRequestData()
 void Player::SetClientControl(Unit* target, uint8 allowMove)
 {
     WorldPacket data(SMSG_CLIENT_CONTROL_UPDATE, target->GetPackGUID().size()+1);
-    ObjectGuid guid = target->GetGUID();
-    data.WriteBit(guid[0]);
-    data.WriteBit(guid[1]);
-    data.WriteBit(guid[6]);
-    data.WriteBit(guid[2]);
-    data.WriteBit(guid[4]);
-    data.WriteBit(guid[3]);
-    data.WriteBit(guid[7]);
-    data.WriteBit(guid[5]);
-    data.WriteBit(allowMove);
-    data.FlushBits();
-    data.WriteByteSeq(guid[7]);
-    data.WriteByteSeq(guid[2]);
-    data.WriteByteSeq(guid[6]);
-    data.WriteByteSeq(guid[0]);
-    data.WriteByteSeq(guid[3]);
-    data.WriteByteSeq(guid[1]);
-    data.WriteByteSeq(guid[4]);
-    data.WriteByteSeq(guid[5]);
+    data.append(target->GetPackGUID());
+    data << uint8(allowMove);
     GetSession()->SendPacket(&data);
-    if (target == this)
+    if (target == this && allowMove == 1)
         SetMover(this);
 }
 
@@ -24388,23 +24493,23 @@ void Player::SetMover(Unit* target)
     ObjectGuid guid = target->GetGUID();
 
     WorldPacket data(SMSG_MOVE_SET_ACTIVE_MOVER, 9);
-    data.WriteBit(guid[7]);
-    data.WriteBit(guid[4]);
-    data.WriteBit(guid[6]);
     data.WriteBit(guid[5]);
+    data.WriteBit(guid[7]);
+    data.WriteBit(guid[3]);
+    data.WriteBit(guid[6]);
+    data.WriteBit(guid[0]);
+    data.WriteBit(guid[4]);
     data.WriteBit(guid[1]);
     data.WriteBit(guid[2]);
-    data.WriteBit(guid[3]);
-    data.WriteBit(guid[0]);
 
     data.WriteByteSeq(guid[6]);
+    data.WriteByteSeq(guid[2]);
+    data.WriteByteSeq(guid[3]);
+    data.WriteByteSeq(guid[0]);
+    data.WriteByteSeq(guid[5]);
+    data.WriteByteSeq(guid[7]);
     data.WriteByteSeq(guid[1]);
     data.WriteByteSeq(guid[4]);
-    data.WriteByteSeq(guid[7]);
-    data.WriteByteSeq(guid[2]);
-    data.WriteByteSeq(guid[5]);
-    data.WriteByteSeq(guid[0]);
-    data.WriteByteSeq(guid[3]);
 
     SendDirectMessage(&data);
 }

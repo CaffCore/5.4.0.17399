@@ -33,13 +33,7 @@
 
 void WorldSession::HandleMoveWorldportAckOpcode(WorldPacket& recvPacket)
 {
-    uint8 bit;
-    uint32 data = 0;
-    bit = !recvPacket.ReadBit();
-    if (bit) {
-        recvPacket >> data;
-    }
-    sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: got MSG_MOVE_WORLDPORT_ACK. %u %u %u", recvPacket.size(), bit, data);
+    //sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: got MSG_MOVE_WORLDPORT_ACK. %u %u %u", recvPacket.size(), bit, data);
 
     HandleMoveWorldportAckOpcode();
 }
@@ -223,23 +217,23 @@ void WorldSession::HandleMoveTeleportAck(WorldPacket& recvPacket)
     uint32 flags, time;
     recvPacket >> flags >> time; // didn't tested ; in worst case should switch those but i think isn't needed
 
-    guid[1] = recvPacket.ReadBit();
-    guid[7] = recvPacket.ReadBit();
-    guid[0] = recvPacket.ReadBit();
-    guid[5] = recvPacket.ReadBit();
-    guid[4] = recvPacket.ReadBit();
-    guid[2] = recvPacket.ReadBit();
-    guid[6] = recvPacket.ReadBit();
     guid[3] = recvPacket.ReadBit();
+    guid[4] = recvPacket.ReadBit();
+    guid[7] = recvPacket.ReadBit();
+    guid[2] = recvPacket.ReadBit();
+    guid[5] = recvPacket.ReadBit();
+    guid[1] = recvPacket.ReadBit();
+    guid[6] = recvPacket.ReadBit();
+    guid[0] = recvPacket.ReadBit();
 
-    recvPacket.ReadByteSeq(guid[1]);
-    recvPacket.ReadByteSeq(guid[5]);
-    recvPacket.ReadByteSeq(guid[4]);
-    recvPacket.ReadByteSeq(guid[2]);
-    recvPacket.ReadByteSeq(guid[7]);
-    recvPacket.ReadByteSeq(guid[6]);
     recvPacket.ReadByteSeq(guid[0]);
+    recvPacket.ReadByteSeq(guid[6]);
+    recvPacket.ReadByteSeq(guid[5]);
     recvPacket.ReadByteSeq(guid[3]);
+    recvPacket.ReadByteSeq(guid[7]);
+    recvPacket.ReadByteSeq(guid[1]);
+    recvPacket.ReadByteSeq(guid[2]);
+    recvPacket.ReadByteSeq(guid[4]);
 
     sLog->outDebug(LOG_FILTER_NETWORKIO, "Guid " UI64FMTD, uint64(guid));
     sLog->outDebug(LOG_FILTER_NETWORKIO, "Flags %u, time %u", flags, time/IN_MILLISECONDS);
@@ -303,82 +297,6 @@ void WorldSession::HandleMovementOpcodes(WorldPacket& recvPacket)
     /* extract packet */
     MovementInfo movementInfo;
     GetPlayer()->ReadMovementInfo(recvPacket, &movementInfo);
-
-    if(plrMover && !plrMover->isGameMaster() && plrMover->GetAntiHackLastPos().IsPositionValid() && movementInfo.t_guid == 0 && !(movementInfo.flags & MOVEMENTFLAG_FALLING))
-    {
-        Position lPos = plrMover->GetAntiHackLastPos();
-        float dist = movementInfo.pos.GetExactDist(&lPos);
-        uint32 dt = GetMSTimeDiffToNow(plrMover->GetAntiHackLastTime());
-        if(dt != 0 && dist != 0)
-        {
-            UnitMoveType mType;
-
-            if(movementInfo.flags & MOVEMENTFLAG_WALKING && !(movementInfo.flags & MOVEMENTFLAG_FLYING))
-            {
-                mType = MOVE_WALK;
-            }
-            else if(movementInfo.flags & MOVEMENTFLAG_SWIMMING)
-            {
-                if(movementInfo.flags & MOVEMENTFLAG_BACKWARD)
-                    mType = MOVE_SWIM_BACK;
-                else
-                    mType = MOVE_SWIM;
-            }
-            else if(movementInfo.flags & MOVEMENTFLAG_FLYING)
-            {
-                if(movementInfo.flags & MOVEMENTFLAG_BACKWARD)
-                    mType = MOVE_FLIGHT_BACK;
-                else
-                    mType = MOVE_FLIGHT;
-            }
-            else
-            {
-                if(movementInfo.flags & MOVEMENTFLAG_BACKWARD)
-                    mType = MOVE_RUN_BACK;
-                else
-                    mType = MOVE_RUN;
-            }
-
-            float vitesse = dist / (float)(dt / float(IN_MILLISECONDS)), vsimu = plrMover->GetSpeed(mType);
-            int ecart_relatif = floor(((vitesse - vsimu) / vsimu) * 100);
-
-            if(ecart_relatif > 100)
-                plrMover->ReportSpeedHack(vitesse);
-            else
-                plrMover->ResetSpeedHackReport();
-
-            if(movementInfo.flags & MOVEMENTFLAG_FLYING)
-            {
-                if(!plrMover->HasAuraType(SPELL_AURA_FLY) && !plrMover->HasAuraType(SPELL_AURA_MOUNTED) &&
-                        !plrMover->m_mover->HasAuraType(SPELL_AURA_MOD_INCREASE_MOUNTED_FLIGHT_SPEED))
-                {
-                    plrMover->ReportFlyHack();
-                }
-                else
-                    plrMover->ResetFlyHackReport();
-            }
-
-            if(movementInfo.flags & MOVEMENTFLAG_WATERWALKING)
-            {
-                if(!plrMover->HasAuraType(SPELL_AURA_WATER_WALK) && !plrMover->HasAuraType(SPELL_AURA_GHOST))
-                {
-                    plrMover->ReportWWHack();
-                }
-                else
-                    plrMover->ResetWWHackReport();
-            }
-
-            /*if(movementInfo.flags & MOVEMENTFLAG_JUMPING)
-            {
-                ss << " jumping (vitesse  Z :" << movementInfo.j_zspeed << " XY : " << movementInfo.j_xyspeed << ")";
-            }*/
-        }
-    }
-    if(plrMover)
-    {
-        plrMover->SetAntiHackLastPos(movementInfo.pos);
-        plrMover->SetAntiHackLastTime(getMSTime());
-    }
 
     // prevent tampered movement data
     if (movementInfo.guid != mover->GetGUID())
@@ -477,7 +395,7 @@ void WorldSession::HandleMovementOpcodes(WorldPacket& recvPacket)
         // now client not include swimming flag in case jumping under water
         plrMover->SetInWater(!plrMover->IsInWater() || plrMover->GetBaseMap()->IsUnderWater(movementInfo.pos.GetPositionX(), movementInfo.pos.GetPositionY(), movementInfo.pos.GetPositionZ()));
     }
-
+	uint32 mstime = getMSTime();
     movementInfo.time = getMSTime();
     movementInfo.guid = mover->GetGUID();
     mover->m_movementInfo = movementInfo;
@@ -610,27 +528,26 @@ void WorldSession::HandleSetActiveMoverOpcode(WorldPacket& recvPacket)
 {
     sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: Recvd CMSG_SET_ACTIVE_MOVER");
 
-    ObjectGuid guid;
+    ObjectGuid guid;   
 
-    uint8 unk;
-    unk = recvPacket.ReadBit();
-    guid[6] = recvPacket.ReadBit();
+    recvPacket.ReadBit();
+    guid[4] = recvPacket.ReadBit();
     guid[7] = recvPacket.ReadBit();
+    guid[6] = recvPacket.ReadBit();
+    guid[0] = recvPacket.ReadBit();
+    guid[5] = recvPacket.ReadBit();
     guid[3] = recvPacket.ReadBit();
     guid[1] = recvPacket.ReadBit();
     guid[2] = recvPacket.ReadBit();
-    guid[4] = recvPacket.ReadBit();
-    guid[5] = recvPacket.ReadBit();
-    guid[0] = recvPacket.ReadBit();
 
-    recvPacket.ReadByteSeq(guid[2]);
-    recvPacket.ReadByteSeq(guid[0]);
-    recvPacket.ReadByteSeq(guid[1]);
-    recvPacket.ReadByteSeq(guid[5]);
-    recvPacket.ReadByteSeq(guid[3]);
     recvPacket.ReadByteSeq(guid[7]);
+    recvPacket.ReadByteSeq(guid[0]);
+    recvPacket.ReadByteSeq(guid[3]);
     recvPacket.ReadByteSeq(guid[6]);
+    recvPacket.ReadByteSeq(guid[5]);
+    recvPacket.ReadByteSeq(guid[2]);
     recvPacket.ReadByteSeq(guid[4]);
+    recvPacket.ReadByteSeq(guid[1]);
 
     if (GetPlayer()->IsInWorld())
     {

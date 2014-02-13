@@ -1063,23 +1063,23 @@ void WorldSession::HandleSetActionButtonOpcode(WorldPacket& recvData)
 	uint8 slotId;
 	recvData >> slotId;
 
- 	guid[0] = recvData.ReadBit();
+ 	guid[1] = recvData.ReadBit();
  	guid[7] = recvData.ReadBit();
  	guid[6] = recvData.ReadBit();
- 	guid[1] = recvData.ReadBit();
- 	guid[3] = recvData.ReadBit();
  	guid[5] = recvData.ReadBit();
  	guid[2] = recvData.ReadBit();
  	guid[4] = recvData.ReadBit();
+ 	guid[0] = recvData.ReadBit();
+ 	guid[3] = recvData.ReadBit();
 
-	recvData.ReadByteSeq(guid[3]);
- 	recvData.ReadByteSeq(guid[0]);
+	recvData.ReadByteSeq(guid[2]);
+ 	recvData.ReadByteSeq(guid[7]);
  	recvData.ReadByteSeq(guid[1]);
  	recvData.ReadByteSeq(guid[4]);
- 	recvData.ReadByteSeq(guid[7]);
- 	recvData.ReadByteSeq(guid[2]);
- 	recvData.ReadByteSeq(guid[6]);
+ 	recvData.ReadByteSeq(guid[0]);
  	recvData.ReadByteSeq(guid[5]);
+ 	recvData.ReadByteSeq(guid[3]);
+ 	recvData.ReadByteSeq(guid[6]);
 
     ActionButtonPACKET* button = (ActionButtonPACKET*)&guid;
 
@@ -1617,16 +1617,15 @@ void WorldSession::HandleRealmSplitOpcode(WorldPacket& recvData)
     std::string split_date = "01/01/01";
     recvData >> unk;
 
-    WorldPacket data(SMSG_REALM_SPLIT, 4+4+split_date.size()+1);
+	WorldPacket data(SMSG_REALM_SPLIT, 4+4+split_date.size()+1);
+
+    data.WriteBits(split_date.length(), 7);
+    data.FlushBits();
     data << unk;
-    data << uint32(0x00000000);                             // realm split state
-    // split states:
-    // 0x0 realm normal
-    // 0x1 realm split
-    // 0x2 realm split pending
-    data << split_date;
+    data << uint32(0);
+    data.WriteString(split_date);
+
     SendPacket(&data);
-    //sLog->outDebug("response sent %u", unk);
 }
 
 void WorldSession::HandleFarSightOpcode(WorldPacket& recvData)
@@ -2166,23 +2165,23 @@ void WorldSession::HandleViolenceLevel(WorldPacket& recvPacket)
 void WorldSession::HandleObjectUpdateFailedOpcode(WorldPacket& recvPacket)
 {
     ObjectGuid guid;
-    guid[5] = recvPacket.ReadBit();
-    guid[3] = recvPacket.ReadBit();
+    guid[2] = recvPacket.ReadBit();
+    guid[1] = recvPacket.ReadBit();
     guid[0] = recvPacket.ReadBit();
     guid[6] = recvPacket.ReadBit();
-    guid[1] = recvPacket.ReadBit();
-    guid[4] = recvPacket.ReadBit();
-    guid[2] = recvPacket.ReadBit();
+    guid[3] = recvPacket.ReadBit();
     guid[7] = recvPacket.ReadBit();
+    guid[4] = recvPacket.ReadBit();
+    guid[5] = recvPacket.ReadBit();
 
-    recvPacket.ReadByteSeq(guid[2]);
-    recvPacket.ReadByteSeq(guid[3]);
     recvPacket.ReadByteSeq(guid[7]);
-    recvPacket.ReadByteSeq(guid[4]);
     recvPacket.ReadByteSeq(guid[5]);
     recvPacket.ReadByteSeq(guid[1]);
-    recvPacket.ReadByteSeq(guid[0]);
     recvPacket.ReadByteSeq(guid[6]);
+    recvPacket.ReadByteSeq(guid[4]);
+    recvPacket.ReadByteSeq(guid[2]);
+    recvPacket.ReadByteSeq(guid[3]);
+    recvPacket.ReadByteSeq(guid[0]);
 
     WorldObject *obj = sObjectAccessor->GetWorldObject(*_player, guid);
 
