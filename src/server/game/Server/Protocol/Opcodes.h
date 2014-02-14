@@ -180,7 +180,7 @@ enum Opcodes
     CMSG_CONTACT_LIST                                 = 0x04C1,//16357
     CMSG_CORPSE_MAP_POSITION_QUERY                    = 0x025B, //16357 ???
 	CMSG_CORPSE_QUERY                                 = 0x0D13,//16357
-    CMSG_CREATURE_QUERY                               = 0x285, //16357
+    CMSG_CREATURE_QUERY                               = 0x1585, //5.4.0
     CMSG_DANCE_QUERY                                  = 0x06EC,//16357
     CMSG_DB_QUERY                                     = 0x0537,//16357 NEW OF MOP
     CMSG_DECLINE_CHANNEL_INVITE                       = 0x0AC1,//16357
@@ -205,7 +205,7 @@ enum Opcodes
     CMSG_FAR_SIGHT                                    = 0x0D48,//16357
     CMSG_FORCE_MOVE_ROOT_ACK                          = 0x1160,
     CMSG_FORCE_MOVE_UNROOT_ACK                        = 0x1161,
-    CMSG_GAMEOBJECT_QUERY                             = 0x0BE9, //16357
+    CMSG_GAMEOBJECT_QUERY                             = 0x15A4, //5.4.0
     CMSG_GAMEOBJ_REPORT_USE                           = 0x0969,//16357
     CMSG_GAMEOBJ_USE                                  = 0x0648,//16357
     CMSG_GAMESPEED_SET                                = 0x1165,
@@ -391,9 +391,9 @@ enum Opcodes
     CMSG_MOVE_TIME_SKIPPED                            = 0x1336,
     CMSG_MOVE_TOGGLE_COLLISION_ACK                    = 0x1337,
     CMSG_MOVE_WATER_WALK_ACK                          = 0x1338,
-    CMSG_NAME_QUERY                                   = 0x1EC, //16357
-    CMSG_REALM_CACHE                                  = 0xA4D,  // 16357 fl
-    SMSG_REALM_CACHE                                  = 0xD81,  // 16357 fl
+    CMSG_NAME_QUERY                                   = 0x16DB, //5.4.0
+    CMSG_REALM_CACHE                                  = 0x13D7, //5.4.0
+    SMSG_REALM_CACHE                                  = 0x042B, //5.4.0
     CMSG_NEW_SPELL_SLOT                               = 0x1339,
     CMSG_NEXT_CINEMATIC_CAMERA                        = 0x08A5,//16357
     CMSG_NPC_TEXT_QUERY                               = 0x2E5,//16357
@@ -855,7 +855,7 @@ enum Opcodes
     SMSG_CORPSE_NOT_IN_INSTANCE                       = 0x0824, //16357
     SMSG_CORPSE_RECLAIM_DELAY                         = 0x0504, //16357
 	SMSG_CORPSE_QUERY                                 = 0x0F78,//16357
-    SMSG_CREATURE_QUERY_RESPONSE                      = 0xAA4, //16357
+    SMSG_CREATURE_QUERY_RESPONSE                      = 0x01B4, //5.4.0
     SMSG_CRITERIA_DELETED                             = 0x1728,
     SMSG_CRITERIA_UPDATE                              = 0x082C, //5.4.0
     SMSG_CROSSED_INEBRIATION_THRESHOLD                = 0x0AED,//16357
@@ -914,7 +914,7 @@ enum Opcodes
     SMSG_GAMEOBJECT_CUSTOM_ANIM                       = 0xF2D, //16357
     SMSG_GAMEOBJECT_DESPAWN_ANIM                      = 0x1773,
     SMSG_GAMEOBJECT_PAGETEXT                          = 0x1774,
-    SMSG_GAMEOBJECT_QUERY_RESPONSE                    = 0x80D, //16357
+    SMSG_GAMEOBJECT_QUERY_RESPONSE                    = 0x0015, //5.4.0
     SMSG_GAMEOBJECT_RESET_STATE                       = 0x1775,
     SMSG_GAMESPEED_SET                                = 0x1776,
     SMSG_GAMETIME_SET                                 = 0x1777,
@@ -1149,7 +1149,7 @@ enum Opcodes
     SMSG_MOVE_UPDATE_WALK_SPEED                       = 0x3B8, //16357
     SMSG_MOVE_WATER_WALK                              = 0x21C, //16357
     SMSG_MULTIPLE_PACKETS                             = 0x0EEC,//16357
-    SMSG_NAME_QUERY_RESPONSE                          = 0x30D, //16357
+    SMSG_NAME_QUERY_RESPONSE                          = 0x00B7, //5.4.0
     SMSG_NEW_TAXI_PATH                                = 0x016C,//16357
     SMSG_NEW_WORLD                                    = 0x01AE, //5.4.0 0x0896
     SMSG_NEW_WORLD_ABORT                              = 0x295, //16357
@@ -1268,7 +1268,7 @@ enum Opcodes
     SMSG_RATED_BG_STATS                               = 0x418, //16357
     SMSG_READ_ITEM_FAILED                             = 0x00C9, //16357
     SMSG_READ_ITEM_OK                                 = 0x08CD, //16357
-    SMSG_REALM_QUERY                                  = 0x042B, //5.4.0
+    SMSG_REALM_QUERY                                  = 0x0000, //5.4.0
     SMSG_REALM_SPLIT                                  = 0x0099, //5.4.0
     SMSG_REAL_GROUP_UPDATE                            = 0x2056,
     SMSG_RECEIVED_MAIL                                = 0x02A1, //16357
