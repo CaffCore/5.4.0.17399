@@ -171,7 +171,7 @@ int WorldSocket::SendPacket(WorldPacket const& pct)
     WorldPacket const* pkt = &pct;
 
     if (m_Session)
-        sLog->outError(LOG_FILTER_GENERAL, "S->C: %s %s", m_Session->GetPlayerInfo().c_str(), GetOpcodeNameForLogging(pkt->GetOpcode()).c_str());
+        sLog->outDebug(LOG_FILTER_GENERAL, "S->C: %s %s", m_Session->GetPlayerInfo().c_str(), GetOpcodeNameForLogging(pkt->GetOpcode()).c_str());
 
     sScriptMgr->OnPacketSend(this, *pkt);
 
@@ -759,7 +759,7 @@ int WorldSocket::ProcessIncoming(WorldPacket* new_pct)
 
     std::string opcodeName = GetOpcodeNameForLogging(opcode);
     if (m_Session)
-        sLog->outError(LOG_FILTER_GENERAL, "C->S: %s %s", m_Session->GetPlayerInfo().c_str(), opcodeName.c_str());
+        sLog->outDebug(LOG_FILTER_GENERAL, "C->S: %s %s", m_Session->GetPlayerInfo().c_str(), opcodeName.c_str());
 
     try
     {
