@@ -2068,3 +2068,86 @@ bool GameObject::IsLootAllowedFor(Player const* player) const
 
     return true;
 }
+
+void GameObject::_BuildValuesUpdate(uint8 updateType, ByteBuffer* data, Player* target) const
+{
+    if (!target)
+        return;
+
+    bool forcedFlags = GetGoType() == GAMEOBJECT_TYPE_CHEST && GetGOInfo()->chest.groupLootRules && HasLootRecipient();
+    bool targetCanLoot = false;
+    bool targetIsGM = target->isGameMaster();
+
+    if (GetGoType() == GAMEOBJECT_TYPE_CHEST && IsLootAllowedFor(target))
+    {
+        const GameObjectTemplate * l_Template = GetGOInfo();
+
+        for (uint32 l_QuestSlot = 0 ; l_QuestSlot < MAX_QUEST_LOG_SIZE ; l_QuestSlot++)
+        {
+            if (!target->GetQuestSlotQuestId(l_QuestSlot))
+                continue;
+
+            const Quest * l_QuestTemplate = sObjectMgr->GetQuestTemplate(target->GetQuestSlotQuestId(l_QuestSlot));
+
+            if (!l_QuestTemplate)
+                continue;
+
+            for (uint32 l_Y = 0 ; l_Y < QUEST_OBJECTIVES_COUNT ; l_Y++)
+            {
+                for (uint32 l_T = 0; l_T < MAX_GAMEOBJECT_QUEST_ITEMS ; l_T++)
+                {
+                    if (l_QuestTemplate->RequiredItemId[l_Y] == l_Template->questItems[l_T])
+                    {
+                        targetCanLoot = true;
+                        break;
+                    }
+                }
+
+                if (targetCanLoot)
+                    break;
+            }
+
+            if (targetCanLoot)
+                break;
+        }
+    }
+
+    ByteBuffer fieldBuffer;
+
+    UpdateMask updateMask;
+    updateMask.SetCount(m_valuesCount);
+
+    uint32* flags;
+    uint32 visibleFlag = GetUpdateFieldData(target, flags);
+    
+    for (uint16 index = 0; index < m_valuesCount; ++index)
+    {
+        if (_fieldNotifyFlags & flags[index] ||
+            ((updateType == UPDATETYPE_VALUES ? _changesMask.GetBit(index) : m_uint32Values[index]) && (flags[index] & visibleFlag)) ||
+            (index == GAMEOBJECT_FLAGS && forcedFlags) || (index == OBJECT_DYNAMIC_FLAGS && (forcedFlags || targetCanLoot)))
+        {
+            updateMask.SetBit(index);
+
+            if (index == GAMEOBJECT_FLAGS)
+            {
+                uint32 flags = m_uint32Values[GAMEOBJECT_FLAGS];
+                if (GetGoType() == GAMEOBJECT_TYPE_CHEST)
+                    if (GetGOInfo()->chest.groupLootRules && !IsLootAllowedFor(target))
+                        flags |= GO_FLAG_LOCKED | GO_FLAG_NOT_SELECTABLE;
+
+                fieldBuffer << flags;
+            }
+            else if (index == OBJECT_DYNAMIC_FLAGS && (forcedFlags || targetCanLoot))
+            {
+                uint32 l_Flags = m_uint32Values[index] | ((GetGOInfo()->chest.groupLootRules && !IsLootAllowedFor(target)) ? 0 : (m_lootState == GO_JUST_DEACTIVATED ? 0 : UNIT_DYNFLAG_LOOTABLE));
+                fieldBuffer << l_Flags;
+            }
+            else
+                fieldBuffer << m_uint32Values[index]; // other cases
+        }
+    }
+
+    *data << uint8(updateMask.GetBlockCount());
+    updateMask.AppendToPacket(data);
+    data->append(fieldBuffer);
+}

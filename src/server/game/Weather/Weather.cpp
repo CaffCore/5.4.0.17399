@@ -195,7 +195,10 @@ void Weather::SendWeatherUpdateToPlayer(Player* player)
 {
     WorldPacket data(SMSG_WEATHER, (4+4+4));
 
-    data << uint32(GetWeatherState()) << (float)m_grade << uint8(0);
+    data.WriteBit(0);
+    data.FlushBits();
+    data << (float)m_grade << uint32(GetWeatherState());
+
     player->GetSession()->SendPacket(&data);
 }
 
@@ -215,7 +218,9 @@ bool Weather::UpdateWeather()
     WeatherState state = GetWeatherState();
 
     WorldPacket data(SMSG_WEATHER, (4+4+4));
-    data << uint32(state) << (float)m_grade << uint8(0);
+    data.WriteBit(0);
+    data.FlushBits();
+    data << (float)m_grade << uint32(state);
     player->SendMessageToSet(&data, true);
 
     ///- Log the event

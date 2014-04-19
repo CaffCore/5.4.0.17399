@@ -536,40 +536,40 @@ struct AchievementCriteriaEntry
 
 struct AreaTableEntry
 {
-    uint32  ID;                                             // 0
+	uint32  ID;                                             // 0
     uint32  mapid;                                          // 1
     uint32  zone;                                           // 2 if 0 then it's zone, else it's zone id of this area
     uint32  exploreFlag;                                    // 3, main index
-    uint32  flags;                                          // 4,
-    //DBCString AreaName;                                   // 5        5.0.4, internal?
-                                                            // 6        m_SoundProviderPref
-                                                            // 7        m_SoundProviderPrefUnderwater
-                                                            // 8        m_AmbienceID
-                                                            // 9        m_ZoneMusic
-    //DBCString AreaName;                                   // 10       5.0.4, internal?
-                                                            // 11       m_IntroSound
+    uint64  flags;                                          // 4-5
+    //uint32 unk6;                                          // 6
+    //uint32 unk7;                                          // 7
+    //uint32 unk8;                                          // 8,
+    //uint32 unk9;                                          // 9,
+    char*   codeName;                                       // 10
+    //uint32 unk11;                                         // 11,
     int32   area_level;                                     // 12
-    char*   area_name;                                      // 13
-    uint32  team;                                           // 14	
-    uint32  LiquidTypeOverride[4];                          // 15-18 liquid override by type	
-    float   MaxDepth;                                       // 19,	
-                                                            // 20       m_ambient_multiplier
-                                                            // 21       m_lightid															
-    //uint32 unk20;                                         // 22 4.0.0
-    //uint32 unk21;                                         // 23 4.0.0	
-    //uint32 unk22;                                         // 24 4.0.0	
-    //uint32 unk23;                                         // 25 4.0.0	
-    //uint32 unk24;                                         // 26 4.0.1, may be worldStateId	
-	
+    char*  area_name;                                       // 13 17128
+    uint32  team;                                           // 14
+    uint32  LiquidTypeOverride[4];                          // 15-18 liquid override by type
+    float   MaxDepth;                                       // 19,
+    float   AmbientMultiplier;                              // 20 client only?
+    uint32  LightId;                                        // 21
+    //uint32 unk22;                                         // 22 4.0.0 - Mounting related
+    //uint32 unk23;                                         // 23 4.0.0
+    //uint32 unk24;                                         // 24 4.0.0
+    //uint32 unk25;                                         // 25 4.0.0
+    //uint32 unk26;                                         // 26 - worldStateId
+    //uint32 unk27;                                         // 27
+    //uint32 unk28;                                         // 28 17359
+    //uint32 unk29;                                         // 29 17359
+
     // helpers
     bool IsSanctuary() const
     {
         if (mapid == 609)
             return true;
         return (flags & AREA_FLAG_SANCTUARY);
-    }
-	//uint32
-	//uint32
+    }    
 };
 
 #define MAX_GROUP_AREA_IDS 6

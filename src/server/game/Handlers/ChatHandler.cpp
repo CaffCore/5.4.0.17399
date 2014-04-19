@@ -39,6 +39,7 @@
 #include "Util.h"
 #include "ScriptMgr.h"
 #include "AccountMgr.h"
+#include "ChatHandler.h"
 
 void WorldSession::HandleMessagechatOpcode(WorldPacket& recvData)
 {
@@ -232,39 +233,39 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recvData)
     uint32 receiverLength = 0;
     std::string to, channel, msg;
     bool ignoreChecks = false;
-    switch (type)
+     switch (type)
     {
-    case CHAT_MSG_SAY:
-    case CHAT_MSG_EMOTE:
-    case CHAT_MSG_YELL:
-    case CHAT_MSG_PARTY:
-    case CHAT_MSG_GUILD:
-    case CHAT_MSG_OFFICER:
-    case CHAT_MSG_RAID:
-    case CHAT_MSG_RAID_WARNING:
-	case CHAT_MSG_INSTANCE_CHAT:
-	case CHAT_MSG_INSTANCE_CHAT_LEADER:
-        textLength = recvData.ReadBits(9);
-        msg = recvData.ReadString(textLength);
-        break;
-    case CHAT_MSG_WHISPER:
-        textLength = recvData.ReadBits(9);
-        receiverLength = recvData.ReadBits(10);
-        msg = recvData.ReadString(textLength);
-        to = recvData.ReadString(receiverLength);
-        break;
-    case CHAT_MSG_CHANNEL:
-		textLength = recvData.ReadBits(9);
-        receiverLength = recvData.ReadBits(10);
-        msg = recvData.ReadString(textLength);
-        channel = recvData.ReadString(receiverLength);        
-        break;
-    case CHAT_MSG_AFK:
-    case CHAT_MSG_DND:
-        textLength = recvData.ReadBits(9);
-        msg = recvData.ReadString(textLength);
-        ignoreChecks = true;
-        break;
+        case CHAT_MSG_SAY:
+        case CHAT_MSG_EMOTE:
+        case CHAT_MSG_YELL:
+        case CHAT_MSG_PARTY:
+        case CHAT_MSG_GUILD:
+        case CHAT_MSG_OFFICER:
+        case CHAT_MSG_RAID:
+        case CHAT_MSG_RAID_WARNING:
+        /*case CHAT_MSG_BATTLEGROUND:*/
+            textLength = recvData.ReadBits(8);
+            msg = recvData.ReadString(textLength);
+            break;
+        case CHAT_MSG_WHISPER:
+            receiverLength = recvData.ReadBits(9);
+            textLength = recvData.ReadBits(8);
+            to = recvData.ReadString(receiverLength);
+            msg = recvData.ReadString(textLength);
+            break;
+        case CHAT_MSG_CHANNEL:
+            textLength      = recvData.ReadBits(8);
+            receiverLength  = recvData.ReadBits(9);
+
+            msg     = recvData.ReadString(textLength);
+            channel = recvData.ReadString(receiverLength);
+            break;
+        case CHAT_MSG_AFK:
+        case CHAT_MSG_DND:
+            textLength = recvData.ReadBits(8);
+            msg = recvData.ReadString(textLength);
+            ignoreChecks = true;
+            break;
     }
 
     if (!ignoreChecks)
@@ -547,18 +548,18 @@ void WorldSession::HandleAddonMessagechatOpcode(WorldPacket& recvData)
     case CMSG_MESSAGECHAT_ADDON_GUILD:
         type = CHAT_MSG_GUILD;
         break;
-    case CMSG_MESSAGECHAT_ADDON_OFFICER:
-        type = CHAT_MSG_OFFICER;
-        break;
-    case CMSG_MESSAGECHAT_ADDON_PARTY:
-        type = CHAT_MSG_PARTY;
-        break;
-    case CMSG_MESSAGECHAT_ADDON_RAID:
-        type = CHAT_MSG_RAID;
-        break;
-    case CMSG_MESSAGECHAT_ADDON_WHISPER:
-        type = CHAT_MSG_WHISPER;
-        break;
+    //case CMSG_MESSAGECHAT_ADDON_OFFICER:
+      //  type = CHAT_MSG_OFFICER;
+      //  break;
+    //case CMSG_MESSAGECHAT_ADDON_PARTY:
+    //    type = CHAT_MSG_PARTY;
+     //   break;
+   // case CMSG_MESSAGECHAT_ADDON_RAID:
+    //    type = CHAT_MSG_RAID;
+    //    break;
+    //case CMSG_MESSAGECHAT_ADDON_WHISPER:
+    //    type = CHAT_MSG_WHISPER;
+     //   break;
     default:
         sLog->outError(LOG_FILTER_NETWORKIO, "HandleAddonMessagechatOpcode: Unknown addon chat opcode (%u)", recvData.GetOpcode());
         recvData.hexlike();
@@ -693,18 +694,50 @@ public:
 
     void operator()(WorldPacket& data, LocaleConstant loc_idx)
     {
-        std::string const name(i_target ? i_target->GetNameForLocaleIdx(loc_idx) : "");
-        uint32 namlen = name.size();
+                ObjectGuid l_Guid = i_target ? i_target->GetGUID() : 0;
+                ObjectGuid l_TargetGuid = i_player.GetGUID();
 
-        data.Initialize(SMSG_TEXT_EMOTE, 20 + namlen);
-        data << i_player.GetGUID();
-        data << uint32(i_text_emote);
-        data << uint32(i_emote_num);
-        data << uint32(namlen);
-        if (namlen > 1)
-            data << name;
-        else
-            data << uint8(0x00);
+                data.Initialize(SMSG_TEXT_EMOTE, 2 * (8 + 1) + 4 +4);
+                data.WriteBit(l_TargetGuid[0]);
+                data.WriteBit(l_Guid[3]);
+                data.WriteBit(l_Guid[4]);
+                data.WriteBit(l_TargetGuid[6]);
+                data.WriteBit(l_TargetGuid[7]);
+                data.WriteBit(l_TargetGuid[3]);
+                data.WriteBit(l_Guid[6]);
+                data.WriteBit(l_Guid[7]);
+                data.WriteBit(l_TargetGuid[5]);
+                data.WriteBit(l_TargetGuid[2]);
+                data.WriteBit(l_TargetGuid[1]);
+                data.WriteBit(l_Guid[0]);
+                data.WriteBit(l_TargetGuid[4]);
+                data.WriteBit(l_Guid[1]);
+                data.WriteBit(l_Guid[5]);
+                data.WriteBit(l_Guid[2]);
+                data.FlushBits();
+
+                data.WriteByteSeq(l_TargetGuid[4]);
+                data.WriteByteSeq(l_TargetGuid[5]);
+                data.WriteByteSeq(l_TargetGuid[1]);
+                data.WriteByteSeq(l_Guid[6]);
+
+                data << uint32(i_emote_num);
+
+                data.WriteByteSeq(l_Guid[7]);
+                data.WriteByteSeq(l_Guid[1]);
+                data.WriteByteSeq(l_Guid[4]);
+
+                data << uint32(i_text_emote);
+
+                data.WriteByteSeq(l_Guid[0]);                
+                data.WriteByteSeq(l_TargetGuid[7]);
+                data.WriteByteSeq(l_TargetGuid[3]);
+                data.WriteByteSeq(l_Guid[2]);
+                data.WriteByteSeq(l_TargetGuid[6]);
+                data.WriteByteSeq(l_TargetGuid[2]);
+                data.WriteByteSeq(l_Guid[5]);
+                data.WriteByteSeq(l_TargetGuid[0]);
+                data.WriteByteSeq(l_Guid[3]);
     }
 
 private:
@@ -728,11 +761,28 @@ void WorldSession::HandleTextEmoteOpcode(WorldPacket& recvData)
     }
 
     uint32 text_emote, emoteNum;
-    uint64 guid;
+    ObjectGuid guid;
 
-    recvData >> text_emote;
     recvData >> emoteNum;
-    recvData >> guid;
+    recvData >> text_emote;
+
+    guid[4] = recvData.ReadBit();
+    guid[2] = recvData.ReadBit();
+    guid[5] = recvData.ReadBit();
+    guid[6] = recvData.ReadBit();
+    guid[0] = recvData.ReadBit();
+    guid[3] = recvData.ReadBit();
+    guid[7] = recvData.ReadBit();
+    guid[1] = recvData.ReadBit();
+
+    recvData.ReadByteSeq(guid[4]);
+    recvData.ReadByteSeq(guid[1]);
+    recvData.ReadByteSeq(guid[5]);
+    recvData.ReadByteSeq(guid[2]);
+    recvData.ReadByteSeq(guid[3]);
+    recvData.ReadByteSeq(guid[0]);
+    recvData.ReadByteSeq(guid[6]);
+    recvData.ReadByteSeq(guid[7]);
 
     sScriptMgr->OnPlayerTextEmote(GetPlayer(), text_emote, emoteNum, guid);
 
@@ -841,4 +891,272 @@ void WorldSession::SendChatRestrictedNotice(ChatRestrictionType restriction)
     WorldPacket data(SMSG_CHAT_RESTRICTED, 1);
     data << uint8(restriction);
     SendPacket(&data);
+}
+
+ChatBuilder::ChatBuilder()
+{
+}
+
+ChatBuilder::~ChatBuilder()
+{
+}
+
+
+//////////////////////////////////////////////////////////////////////////
+
+bool ChatBuilder::BuildChatPacket(WorldPacket * p_Dest, ObjectGuid p_Sender, ObjectGuid p_Receiver, ObjectGuid p_GroupGuid, ObjectGuid p_GuildGuid, const std::string & p_What, const std::string & p_Name,
+                                  const std::string & p_ChannelName, uint8 p_ChatTag, uint8 p_Language, uint8 p_MessageType, uint32 p_RealmID, const char * p_AddonPrefix)
+{
+    std::string l_SenderName = "";
+    std::string l_AddonPrefix = "";
+
+    if (p_AddonPrefix)
+        l_AddonPrefix = p_AddonPrefix;
+
+    bool l_HasLanguage	= true;
+    bool l_HasRealm		= true;
+    bool dword1488      = false;
+
+    if (l_HasRealm && p_RealmID == 0)
+        p_RealmID = realmID;
+
+    p_Dest->Initialize(SMSG_MESSAGECHAT, p_What.size() + p_Name.size() + p_ChannelName.size() + 48 + (3 * 8) + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 5);
+    p_Dest->WriteBit(0);
+    p_Dest->WriteBit(p_What.empty());
+    p_Dest->WriteBit(1);
+    p_Dest->WriteBit(p_Name.empty());
+    p_Dest->WriteBit(0);
+    p_Dest->WriteBit(p_Sender[2]);
+    p_Dest->WriteBit(p_Sender[4]);
+    p_Dest->WriteBit(p_Sender[0]);
+    p_Dest->WriteBit(p_Sender[6]);
+    p_Dest->WriteBit(p_Sender[1]);
+    p_Dest->WriteBit(p_Sender[3]);
+    p_Dest->WriteBit(p_Sender[5]);
+    p_Dest->WriteBit(p_Sender[7]);
+    p_Dest->WriteBit(1);
+    p_Dest->WriteBits(0, 8);
+    p_Dest->WriteBit(1);
+    p_Dest->WriteBit(0);
+    p_Dest->WriteBit(!l_HasRealm);
+    p_Dest->WriteBit(!(p_MessageType == CHAT_MSG_RAID_BOSS_WHISPER || p_MessageType == CHAT_MSG_RAID_BOSS_EMOTE));
+
+    if (!p_Name.empty())
+        p_Dest->WriteBits(p_Name.length(), 11);
+
+    p_Dest->WriteBit(0);
+    p_Dest->WriteBit(p_Sender[4]);
+    p_Dest->WriteBit(p_Sender[0]);
+    p_Dest->WriteBit(p_Sender[6]);
+    p_Dest->WriteBit(p_Sender[7]);
+    p_Dest->WriteBit(p_Sender[5]);
+    p_Dest->WriteBit(p_Sender[1]);
+    p_Dest->WriteBit(p_Sender[3]);
+    p_Dest->WriteBit(p_Sender[2]);
+
+    if (!l_AddonPrefix.empty())
+        p_Dest->WriteBits(l_AddonPrefix.length(), 5);
+
+    p_Dest->WriteBit(l_SenderName.empty());
+    p_Dest->WriteBit(!p_ChatTag);
+
+    if (!p_What.empty())
+        p_Dest->WriteBits(p_What.length(), 12);
+
+    p_Dest->WriteBit(!l_HasLanguage);
+
+    if (p_ChatTag)
+        p_Dest->WriteBits(p_ChatTag, 9);
+
+    p_Dest->WriteBit(1);
+
+    if (!l_SenderName.empty())
+        p_Dest->WriteBits(l_SenderName.length(), 11);
+
+    p_Dest->WriteBits(0, 8);
+    p_Dest->WriteBit(p_ChannelName.empty());
+
+    if (!p_ChannelName.empty())
+        p_Dest->WriteBits(p_ChannelName.length(), 7);
+
+    p_Dest->FlushBits();
+
+    if (!p_ChannelName.empty())
+        p_Dest->WriteString(p_ChannelName);
+    if (!p_Name.empty())
+        p_Dest->WriteString(p_Name);
+
+    p_Dest->WriteByteSeq(p_Sender[0]);
+    p_Dest->WriteByteSeq(p_Sender[4]);
+    p_Dest->WriteByteSeq(p_Sender[1]);
+    p_Dest->WriteByteSeq(p_Sender[3]);
+    p_Dest->WriteByteSeq(p_Sender[5]);
+    p_Dest->WriteByteSeq(p_Sender[7]);
+    p_Dest->WriteByteSeq(p_Sender[2]);
+    p_Dest->WriteByteSeq(p_Sender[6]);
+
+    *p_Dest << uint8(p_MessageType);
+
+    p_Dest->WriteByteSeq(p_Sender[7]);
+    p_Dest->WriteByteSeq(p_Sender[6]);
+    p_Dest->WriteByteSeq(p_Sender[5]);
+    p_Dest->WriteByteSeq(p_Sender[4]);
+    p_Dest->WriteByteSeq(p_Sender[0]);
+    p_Dest->WriteByteSeq(p_Sender[2]);
+    p_Dest->WriteByteSeq(p_Sender[1]);
+    p_Dest->WriteByteSeq(p_Sender[3]);
+
+    if (!l_AddonPrefix.empty())
+        p_Dest->WriteString(l_AddonPrefix);
+
+    if (l_HasRealm)
+        *p_Dest << uint32(p_RealmID);
+
+    if (!l_SenderName.empty())
+        p_Dest->WriteString(l_SenderName);
+
+    if (l_HasLanguage)
+        *p_Dest << p_Language;
+
+    if (!p_What.empty())
+        p_Dest->WriteString(p_What);
+
+    if (p_MessageType == CHAT_MSG_RAID_BOSS_WHISPER || p_MessageType == CHAT_MSG_RAID_BOSS_EMOTE)
+        *p_Dest << float(0.0f); /// Added in 4.2.0, unk
+
+  /*  p_Dest->WriteBit(!(p_MessageType == CHAT_MSG_RAID_BOSS_WHISPER || p_MessageType == CHAT_MSG_RAID_BOSS_EMOTE));
+    p_Dest->WriteBit(0);
+    p_Dest->WriteBit(1);
+    p_Dest->WriteBit(dword3C.empty());
+    p_Dest->WriteBit(p_GroupGuid[6]);
+    p_Dest->WriteBit(p_GroupGuid[1]);
+    p_Dest->WriteBit(p_GroupGuid[7]);
+    p_Dest->WriteBit(p_GroupGuid[5]);
+    p_Dest->WriteBit(p_GroupGuid[4]);
+    p_Dest->WriteBit(p_GroupGuid[3]);
+    p_Dest->WriteBit(p_GroupGuid[2]);
+    p_Dest->WriteBit(p_GroupGuid[0]);
+    p_Dest->WriteBit(0);
+    p_Dest->WriteBit(p_Name.empty());
+    p_Dest->WriteBit(p_Receiver[1]);
+    p_Dest->WriteBit(p_Receiver[5]);
+    p_Dest->WriteBit(p_Receiver[7]);
+    p_Dest->WriteBit(p_Receiver[4]);
+    p_Dest->WriteBit(p_Receiver[2]);
+    p_Dest->WriteBit(p_Receiver[0]);
+    p_Dest->WriteBit(p_Receiver[6]);
+    p_Dest->WriteBit(p_Receiver[3]);
+    p_Dest->WriteBit(0);
+    p_Dest->WriteBit(char43D.empty());
+
+    if (!char43D.empty())
+        p_Dest->WriteBits(char43D.length(), 11);
+
+    p_Dest->WriteBit(1);
+    p_Dest->WriteBit(p_GuildGuid[0]);
+    p_Dest->WriteBit(p_GuildGuid[6]);
+    p_Dest->WriteBit(p_GuildGuid[1]);
+    p_Dest->WriteBit(p_GuildGuid[5]);
+    p_Dest->WriteBit(p_GuildGuid[7]);
+    p_Dest->WriteBit(p_GuildGuid[3]);
+    p_Dest->WriteBit(p_GuildGuid[4]);
+    p_Dest->WriteBit(p_GuildGuid[2]);
+    p_Dest->WriteBit(p_What.empty());
+    p_Dest->WriteBit(char83E.empty());
+
+    if (!dword3C.empty())
+        p_Dest->WriteBits(dword3C.length(), 11);
+    if (!p_What.empty())
+        p_Dest->WriteBits(p_What.length(), 12);
+
+    p_Dest->WriteBit(!l_HasRealm);
+    p_Dest->WriteBit(1);
+    p_Dest->WriteBit(0);
+    p_Dest->WriteBit(p_Sender[5]);
+    p_Dest->WriteBit(p_Sender[4]);
+    p_Dest->WriteBit(p_Sender[1]);
+    p_Dest->WriteBit(p_Sender[0]);
+    p_Dest->WriteBit(p_Sender[6]);
+    p_Dest->WriteBit(p_Sender[2]);
+    p_Dest->WriteBit(p_Sender[7]);
+    p_Dest->WriteBit(p_Sender[3]);
+
+    if (!p_Name.empty())
+        p_Dest->WriteBits(p_Name.length(), 7);
+
+    p_Dest->WriteBit(!p_ChatTag);
+
+    if (p_ChatTag)
+        p_Dest->WriteBits(p_ChatTag, 9);
+
+    p_Dest->WriteBit(!l_HasLanguage);
+
+    if (!char83E.empty())
+        p_Dest->WriteBits(char83E.length(), 5);
+
+    p_Dest->FlushBits();
+
+    if (!char83E.empty())
+        p_Dest->WriteString(char83E);
+
+    p_Dest->WriteByteSeq(p_GuildGuid[3]);
+    p_Dest->WriteByteSeq(p_GuildGuid[1]);
+    p_Dest->WriteByteSeq(p_GuildGuid[5]);
+    p_Dest->WriteByteSeq(p_GuildGuid[4]);
+    p_Dest->WriteByteSeq(p_GuildGuid[6]);
+    p_Dest->WriteByteSeq(p_GuildGuid[2]);
+    p_Dest->WriteByteSeq(p_GuildGuid[0]);
+    p_Dest->WriteByteSeq(p_GuildGuid[7]);
+
+    p_Dest->WriteByteSeq(p_Receiver[7]);
+    p_Dest->WriteByteSeq(p_Receiver[4]);
+    p_Dest->WriteByteSeq(p_Receiver[2]);
+    p_Dest->WriteByteSeq(p_Receiver[3]);
+    p_Dest->WriteByteSeq(p_Receiver[1]);
+    p_Dest->WriteByteSeq(p_Receiver[5]);
+    p_Dest->WriteByteSeq(p_Receiver[6]);
+    p_Dest->WriteByteSeq(p_Receiver[0]);
+
+    p_Dest->WriteByteSeq(p_Sender[5]);
+    p_Dest->WriteByteSeq(p_Sender[0]);
+    p_Dest->WriteByteSeq(p_Sender[7]);
+    p_Dest->WriteByteSeq(p_Sender[4]);
+    p_Dest->WriteByteSeq(p_Sender[3]);
+    p_Dest->WriteByteSeq(p_Sender[2]);
+    p_Dest->WriteByteSeq(p_Sender[1]);
+    p_Dest->WriteByteSeq(p_Sender[6]);
+
+    p_Dest->WriteByteSeq(p_GroupGuid[3]);
+    p_Dest->WriteByteSeq(p_GroupGuid[5]);
+    p_Dest->WriteByteSeq(p_GroupGuid[2]);
+    p_Dest->WriteByteSeq(p_GroupGuid[6]);
+    p_Dest->WriteByteSeq(p_GroupGuid[4]);
+    p_Dest->WriteByteSeq(p_GroupGuid[0]);
+    p_Dest->WriteByteSeq(p_GroupGuid[1]);
+    p_Dest->WriteByteSeq(p_GroupGuid[7]);
+
+    if (!char43D.empty())
+        p_Dest->WriteString(char43D);
+
+    *p_Dest << uint8(p_MessageType);
+
+    if (!p_What.empty())
+        p_Dest->WriteString(p_What);
+
+    if (l_HasRealm)
+        *p_Dest << uint32(p_RealmID);
+
+    if (p_MessageType == CHAT_MSG_RAID_BOSS_WHISPER || p_MessageType == CHAT_MSG_RAID_BOSS_EMOTE)
+        *p_Dest << float(0.0f); /// Added in 4.2.0, unk
+
+    if (!p_Name.empty())
+        p_Dest->WriteString(p_Name);
+
+    if (!dword3C.empty())
+        p_Dest->WriteString(dword3C);
+
+    if (l_HasLanguage)
+        *p_Dest << p_Language;*/
+
+    return true;
 }

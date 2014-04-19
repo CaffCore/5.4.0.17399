@@ -1779,7 +1779,26 @@ class spell_gen_spirit_healer_res : public SpellScriptLoader
                 if (Unit* target = GetHitUnit())
                 {
                     WorldPacket data(SMSG_SPIRIT_HEALER_CONFIRM, 8);
-                    data << uint64(target->GetGUID());
+                    ObjectGuid l_Guid = target->GetGUID();
+
+                    data.WriteBit(l_Guid[2]);
+                    data.WriteBit(l_Guid[0]);
+                    data.WriteBit(l_Guid[4]);
+                    data.WriteBit(l_Guid[1]);
+                    data.WriteBit(l_Guid[5]);
+                    data.WriteBit(l_Guid[6]);
+                    data.WriteBit(l_Guid[7]);
+                    data.WriteBit(l_Guid[3]);
+
+                    data.WriteByteSeq(l_Guid[1]);
+                    data.WriteByteSeq(l_Guid[2]);
+                    data.WriteByteSeq(l_Guid[0]);
+                    data.WriteByteSeq(l_Guid[4]);
+                    data.WriteByteSeq(l_Guid[7]);
+                    data.WriteByteSeq(l_Guid[5]);
+                    data.WriteByteSeq(l_Guid[6]);
+                    data.WriteByteSeq(l_Guid[3]);
+
                     originalCaster->GetSession()->SendPacket(&data);
                 }
             }

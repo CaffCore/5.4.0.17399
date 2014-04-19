@@ -168,8 +168,10 @@ class boss_akilzon : public CreatureScript
                     return;
 
                 WorldPacket data(SMSG_WEATHER, (4+4+4));
-                data << uint32(weather) << float(grade) << uint8(0);
-
+                data << uint32(weather);
+                data << float(grade);
+                data.WriteBit(0);
+                data.FlushBits();
                 map->SendToPlayers(&data);
             }
 

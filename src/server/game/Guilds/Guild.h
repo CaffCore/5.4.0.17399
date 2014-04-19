@@ -331,6 +331,13 @@ private:
     // Class representing guild member
     class Member
     {
+		struct Profession
+        {
+            uint32 skillID;
+            uint32 rank;
+            uint32 level;
+        };
+
     public:
         Member(uint32 guildId, uint64 guid, uint8 rankId):
             m_guildId(guildId),
@@ -401,6 +408,7 @@ private:
         void ResetValues(bool weekly = false);
 
         inline Player* FindPlayer() const { return ObjectAccessor::FindPlayer(m_guid); }
+		Profession professions[2];
 
     private:
         uint32 m_guildId;

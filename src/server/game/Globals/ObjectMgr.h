@@ -960,6 +960,7 @@ class ObjectMgr
         uint32 GenerateMailID();
         uint32 GeneratePetNumber();
         uint64 GenerateVoidStorageItemId();
+		uint32 GenerateLootNumber();
 
         typedef std::multimap<int32, uint32> ExclusiveQuestGroups;
         typedef std::pair<ExclusiveQuestGroups::const_iterator, ExclusiveQuestGroups::const_iterator> ExclusiveQuestGroupsBounds;
@@ -1210,6 +1211,7 @@ class ObjectMgr
         uint32 _hiDoGuid;
         uint32 _hiCorpseGuid;
         uint32 _hiMoTransGuid;
+		uint32 _lootID;
 
         QuestMap _questTemplates;
 

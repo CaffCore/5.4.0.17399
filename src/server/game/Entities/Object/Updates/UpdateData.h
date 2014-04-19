@@ -66,8 +66,6 @@ public:
     uint8 GetMaxBlockLimit();
     uint8 GetBlockCount();
 
-
-
     std::set<uint64> const& GetOutOfRangeGUIDs() const { return m_outOfRangeGUIDs; }
 
 protected:

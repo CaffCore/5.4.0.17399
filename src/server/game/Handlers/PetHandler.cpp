@@ -58,34 +58,69 @@ void WorldSession::HandleDismissCritter(WorldPacket& recvData)
 
 void WorldSession::HandlePetAction(WorldPacket& recvData)
 {
-    uint64 guid1;
+    ObjectGuid guid1;
+    ObjectGuid guid22222;
     uint32 data;
-    uint64 guid2;
+
     float x, y, z;
-    recvData >> guid1;                                     //pet guid
     recvData >> data;
-    recvData >> guid2;                                     //tag guid
     // Position
-    recvData >> x;
     recvData >> y;
+    recvData >> x;
     recvData >> z;
+
+    guid22222[1] = recvData.ReadBit();
+    guid1[3] = recvData.ReadBit();
+    guid22222[5] = recvData.ReadBit();
+    guid1[1] = recvData.ReadBit();
+    guid22222[2] = recvData.ReadBit();
+    guid22222[0] = recvData.ReadBit();
+    guid22222[4] = recvData.ReadBit();
+    guid1[2] = recvData.ReadBit();
+    guid1[6] = recvData.ReadBit();
+    guid22222[3] = recvData.ReadBit();
+    guid22222[6] = recvData.ReadBit();
+    guid1[0] = recvData.ReadBit();
+    guid1[5] = recvData.ReadBit();
+    guid22222[7] = recvData.ReadBit();
+    guid1[7] = recvData.ReadBit();
+    guid1[4] = recvData.ReadBit();
+
+    recvData.ReadByteSeq(guid1[3]);
+    recvData.ReadByteSeq(guid1[1]);
+    recvData.ReadByteSeq(guid22222[4]);
+    recvData.ReadByteSeq(guid22222[7]);
+    recvData.ReadByteSeq(guid1[5]);
+    recvData.ReadByteSeq(guid1[2]);
+    recvData.ReadByteSeq(guid1[6]);
+    recvData.ReadByteSeq(guid22222[1]);
+    recvData.ReadByteSeq(guid22222[3]);
+    recvData.ReadByteSeq(guid22222[5]);
+    recvData.ReadByteSeq(guid22222[6]);
+    recvData.ReadByteSeq(guid22222[0]);
+    recvData.ReadByteSeq(guid1[7]);
+    recvData.ReadByteSeq(guid22222[2]);
+    recvData.ReadByteSeq(guid1[0]);
+    recvData.ReadByteSeq(guid1[4]);
 
     uint32 spellid = UNIT_ACTION_BUTTON_ACTION(data);
     uint8 flag = UNIT_ACTION_BUTTON_TYPE(data);             //delete = 0x07 CastSpell = C1
-
+   
     // used also for charmed creature
-    Unit* pet= ObjectAccessor::GetUnit(*_player, guid1);
-    sLog->outInfo(LOG_FILTER_NETWORKIO, "HandlePetAction: Pet %u - flag: %u, spellid: %u, target: %u.", uint32(GUID_LOPART(guid1)), uint32(flag), spellid, uint32(GUID_LOPART(guid2)));
+
+    // Temp hack
+    Unit* pet = GetPlayer()->GetFirstControlled();
+    sLog->outInfo(LOG_FILTER_NETWORKIO, "HandlePetAction: Pet %u - flag: %u, spellid: %u, target: %u.", uint32(GUID_LOPART(guid1)), uint32(flag), spellid, uint32(GUID_LOPART(guid22222)));
 
     if (!pet)
     {
-        sLog->outError(LOG_FILTER_NETWORKIO, "HandlePetAction: Pet (GUID: %u) doesn't exist for player '%s'", uint32(GUID_LOPART(guid1)), GetPlayer()->GetName().c_str());
+        sLog->outError(LOG_FILTER_NETWORKIO, "HandlePetAction: Pet (GUID: %u) doesn't exist for player %s (GUID: %u)", uint32(GUID_LOPART(guid1)), GetPlayer()->GetName().c_str(), GUID_LOPART(GetPlayer()->GetGUID()));
         return;
     }
 
     if (pet != GetPlayer()->GetFirstControlled())
     {
-        sLog->outError(LOG_FILTER_NETWORKIO, "HandlePetAction: Pet (GUID: %u) does not belong to player '%s'", uint32(GUID_LOPART(guid1)), GetPlayer()->GetName().c_str());
+        sLog->outError(LOG_FILTER_NETWORKIO, "HandlePetAction: Pet (GUID: %u) does not belong to player %s (GUID: %u)", uint32(GUID_LOPART(guid1)), GetPlayer()->GetName().c_str(), GUID_LOPART(GetPlayer()->GetGUID()));
         return;
     }
 
@@ -98,12 +133,12 @@ void WorldSession::HandlePetAction(WorldPacket& recvData)
             return;
     }
 
-    //TODO: allow control charmed player?
+    /// @todo allow control charmed player?
     if (pet->GetTypeId() == TYPEID_PLAYER && !(flag == ACT_COMMAND && spellid == COMMAND_ATTACK))
         return;
 
     if (GetPlayer()->m_Controlled.size() == 1)
-        HandlePetActionHelper(pet, guid1, spellid, flag, guid2, x, y, z);
+        HandlePetActionHelper(pet, guid1, spellid, flag, guid22222, x, y, z);
     else
     {
         //If a pet is dismissed, m_Controlled will change
@@ -112,7 +147,7 @@ void WorldSession::HandlePetAction(WorldPacket& recvData)
             if ((*itr)->GetEntry() == pet->GetEntry() && (*itr)->isAlive())
                 controlled.push_back(*itr);
         for (std::vector<Unit*>::iterator itr = controlled.begin(); itr != controlled.end(); ++itr)
-            HandlePetActionHelper(*itr, guid1, spellid, flag, guid2, x, y, z);
+            HandlePetActionHelper(*itr, guid1, spellid, flag, guid22222, x, y, z);
     }
 }
 
@@ -421,42 +456,75 @@ void WorldSession::HandlePetNameQuery(WorldPacket& recvData)
 {
     sLog->outInfo(LOG_FILTER_NETWORKIO, "HandlePetNameQuery. CMSG_PET_NAME_QUERY");
 
-    uint64 petnumber;
-    uint64 petguid;
+    uint32 petnumber = 0;
+    ObjectGuid PetGuid;
+    ObjectGuid OwnerGuid;
 
-    recvData >> petnumber;
-    recvData >> petguid;
+    PetGuid[5] = recvData.ReadBit();
+    OwnerGuid[3] = recvData.ReadBit();
+    PetGuid[6] = recvData.ReadBit();
+    OwnerGuid[5] = recvData.ReadBit();
+    OwnerGuid[7] = recvData.ReadBit();
+    PetGuid[2] = recvData.ReadBit();
+    PetGuid[4] = recvData.ReadBit();
+    OwnerGuid[2] = recvData.ReadBit();
+    PetGuid[3] = recvData.ReadBit();
+    OwnerGuid[1] = recvData.ReadBit();
+    PetGuid[7] = recvData.ReadBit();
+    OwnerGuid[6] = recvData.ReadBit();
+    PetGuid[1] = recvData.ReadBit();
+    PetGuid[0] = recvData.ReadBit();
+    OwnerGuid[4] = recvData.ReadBit();
+    OwnerGuid[0] = recvData.ReadBit();
 
-    SendPetNameQuery(petguid, petnumber);
+    recvData.ReadByteSeq(OwnerGuid[5]);
+    recvData.ReadByteSeq(PetGuid[4]);
+    recvData.ReadByteSeq(PetGuid[3]);
+    recvData.ReadByteSeq(OwnerGuid[7]);
+    recvData.ReadByteSeq(OwnerGuid[4]);
+    recvData.ReadByteSeq(PetGuid[5]);
+    recvData.ReadByteSeq(PetGuid[2]);
+    recvData.ReadByteSeq(PetGuid[0]);
+    recvData.ReadByteSeq(PetGuid[6]);
+    recvData.ReadByteSeq(OwnerGuid[2]);
+    recvData.ReadByteSeq(OwnerGuid[0]);
+    recvData.ReadByteSeq(OwnerGuid[6]);
+    recvData.ReadByteSeq(PetGuid[1]);
+    recvData.ReadByteSeq(OwnerGuid[3]);
+    recvData.ReadByteSeq(PetGuid[7]);
+    recvData.ReadByteSeq(OwnerGuid[1]);
+
+    SendPetNameQuery(PetGuid, petnumber);
 }
 
 void WorldSession::SendPetNameQuery(uint64 petguid, uint64 petnumber)
 {
     Creature* pet = ObjectAccessor::GetCreatureOrPetOrVehicle(*_player, petguid);
-    if (!pet)
-    {
-        WorldPacket data(SMSG_PET_NAME_QUERY_RESPONSE, (4+1+4+1));
-        data << uint64(petnumber);
-        data << uint8(0);
-        data << uint32(0);
-        data << uint8(0);
-        _player->GetSession()->SendPacket(&data);
-        return;
-    }
+    
+	WorldPacket data(SMSG_PET_NAME_QUERY_RESPONSE, (4+1+4+1));
+    data << petguid;
+    data.WriteBit(pet != 0);
 
-    WorldPacket data(SMSG_PET_NAME_QUERY_RESPONSE, (4+4+pet->GetName().size()+1));
-    data << uint64(petnumber);
-    data << pet->GetName();
-    data << uint32(pet->GetUInt32Value(UNIT_FIELD_PET_NAME_TIMESTAMP));
-
-    if (pet->isPet() && ((Pet*)pet)->GetDeclinedNames())
+    if (pet)
     {
-        data << uint8(1);
         for (uint8 i = 0; i < MAX_DECLINED_NAME_CASES; ++i)
-            data << ((Pet*)pet)->GetDeclinedNames()->name[i];
+            data.WriteBits(((Pet*)pet)->GetDeclinedNames() != 0 ? ((Pet*)pet)->GetDeclinedNames()->name[i].length() : 0, 7);
+
+        data.WriteBit(0);   // unk
+        data.WriteBits(pet->GetName().length(), 8);
+
+        data.FlushBits();
+
+        for (uint8 i = 0; i < MAX_DECLINED_NAME_CASES; ++i)
+            data.WriteString(((Pet*)pet)->GetDeclinedNames() != 0 ? ((Pet*)pet)->GetDeclinedNames()->name[i] : "");
+
+        data << uint32(petnumber);
+        data.WriteString(pet->GetName());
     }
     else
-        data << uint8(0);
+    {
+        data.FlushBits();
+    }
 
     _player->GetSession()->SendPacket(&data);
 }

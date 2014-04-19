@@ -33,7 +33,8 @@ AddonHandler::~AddonHandler()
 
 bool AddonHandler::BuildAddonPacket(WorldPacket* source, WorldPacket* target)
 {
-    ByteBuffer AddOnPacked;
+	return false;
+   /* ByteBuffer AddOnPacked;
     uLongf AddonRealSize;
     uint32 CurrentPosition;
     uint32 TempValue;
@@ -137,6 +138,6 @@ bool AddonHandler::BuildAddonPacket(WorldPacket* source, WorldPacket* target)
     {
         sLog->outError(LOG_FILTER_NETWORKIO, "Addon packet uncompress error :(");
         return false;
-    }
-    return true;
+    }*/
+    
 }

@@ -49,7 +49,7 @@ namespace Movement
             Result_NextSegment  = 0x08
         };
         friend class PacketBuilder;
-    protected:
+    
         MySpline        spline;
 
         FacingInfo      facing;

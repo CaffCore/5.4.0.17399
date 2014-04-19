@@ -200,36 +200,42 @@ void ReputationMgr::SendState(FactionState const* faction)
 
 void ReputationMgr::SendInitialReputations()
 {
-    uint32 count = 256;
-    WorldPacket data(SMSG_INITIALIZE_FACTIONS);
-    data << uint32(count);
+    uint16 count = 256;
+    WorldPacket data(SMSG_INITIALIZE_FACTIONS, (256 * (4 + 1)) + (256 / 8));
+    ByteBuffer buffer(256 / 8);
 
     RepListID a = 0;
 
     for (FactionStateList::iterator itr = _factions.begin(); itr != _factions.end(); ++itr)
     {
         // fill in absent fields
-        for (; a < itr->first; ++a)
+        for (; a != itr->first; ++a)
         {
-            data << uint8(0);
             data << uint32(0);
+            data << uint8(0);
+            buffer.WriteBit(0); // bonus
         }
 
         // fill in encountered data
-        data << uint8(itr->second.Flags);
         data << uint32(itr->second.Standing);
-
+        data << uint8(itr->second.Flags);
+        buffer.WriteBit(0); // bonus
         itr->second.needSend = false;
 
         ++a;
     }
 
     // fill in absent fields
-    for (; a < count; ++a)
+    for (; a != count; ++a)
     {
         data << uint8(0);
         data << uint32(0);
+        buffer.WriteBit(0); // bonus
     }
+
+    buffer.FlushBits();
+
+    data.append(buffer);
 
     _player->SendDirectMessage(&data);
 }

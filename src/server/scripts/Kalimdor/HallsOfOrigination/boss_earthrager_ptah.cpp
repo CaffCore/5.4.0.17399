@@ -117,7 +117,8 @@ public:
             WorldPacket data(SMSG_WEATHER, 9);
             data << uint32(weather);
             data << float(grade);
-            data << uint8(0);
+            data.WriteBit(0);
+            data.FlushBits();
             SendPacketToPlayers(&data);
         }
 

@@ -215,6 +215,8 @@ uint32 BlackMarketMgr::GetNewAuctionId()
 
 void BlackMarketMgr::CreateAuctions(uint32 number, SQLTransaction& trans)
 {
+	return;
+	/*
 	if (BMTemplatesMap.empty())
 		return;
 
@@ -258,7 +260,7 @@ void BlackMarketMgr::CreateAuctions(uint32 number, SQLTransaction& trans)
 
 		BMAuctionsMap[auction->id] = auction;
 		auction->SaveToDB(trans);
-	}
+	}*/
 }
 
 void BlackMarketMgr::BuildBlackMarketAuctionsPacket(WorldPacket& data, uint32 guidLow)

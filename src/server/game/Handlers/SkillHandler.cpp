@@ -56,7 +56,7 @@ void WorldSession::HandleLearnTalentOpcode(WorldPacket& recvData)
 {
     uint32 count;
 
-    count = recvData.ReadBits(25);
+    count = recvData.ReadBits(23);
 
     for (uint32 i = 0; i < count; ++i)
     {

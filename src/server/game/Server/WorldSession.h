@@ -260,7 +260,7 @@ class WorldSession
         void SendAuthWaitQue(uint32 position);
 
         //void SendTestCreatureQueryOpcode(uint32 entry, uint64 guid, uint32 testvalue);
-        void SendNameQueryOpcode(uint64 guid);
+        void SendNameQueryOpcode(uint64 guid, uint32 realmID);
 
         void SendTrainerList(uint64 guid);
         void SendTrainerList(uint64 guid, std::string const& strTitle);
@@ -819,8 +819,7 @@ class WorldSession
         void HandleLfgGetStatus(WorldPacket& recvData);
 		void HandleDungeonFinderGetSystemInfo(WorldPacket& recvData);
 
-        void SendLfgUpdatePlayer(LfgUpdateData const& updateData);
-        void SendLfgUpdateParty(LfgUpdateData const& updateData);
+        void SendLfgUpdatePlayer(LfgUpdateData const& updateData, bool party);        
         void SendLfgRoleChosen(uint64 guid, uint8 roles);
         void SendLfgRoleCheckUpdate(LfgRoleCheck const& pRoleCheck);
         void SendLfgLfrList(bool update);
@@ -951,6 +950,15 @@ class WorldSession
         void HandleWorldStateUITimerUpdate(WorldPacket& recvData);
         void HandleReadyForAccountDataTimes(WorldPacket& recvData);
         void HandleQueryQuestsCompleted(WorldPacket& recvData);
+
+		struct POIQuest
+        {
+            uint32 questId;
+            bool questOk;
+
+            POIQuest(uint32 _questId, bool _questOk) : questId(_questId), questOk(_questOk) { }
+        };
+
         void HandleQuestPOIQuery(WorldPacket& recvData);
         void HandleEjectPassenger(WorldPacket& data);
         void HandleEnterPlayerVehicle(WorldPacket& data);
@@ -960,6 +968,7 @@ class WorldSession
         void HandleViolenceLevel(WorldPacket& recvPacket);
         void HandleObjectUpdateFailedOpcode(WorldPacket& recvPacket);
         void HandleRequestCategoryCooldowns(WorldPacket& recvPacket);
+		//void HandleViewObject(WorldPacket& recvPacket);
 		void HandleSelectFactionOpcode(WorldPacket& recvData);
 		void HandleCompleteMovie(WorldPacket& recvData);
         int32 HandleEnableNagleAlgorithm();

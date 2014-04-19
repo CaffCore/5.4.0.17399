@@ -94,6 +94,9 @@ struct SpellDestination
 
 class SpellCastTargets
 {
+	friend class WorldSession;
+    friend class Spell;
+
     public:
         SpellCastTargets();
         ~SpellCastTargets();

@@ -40,49 +40,7 @@ void WorldSession::HandleAutostoreLootItemOpcode(WorldPacket& recvData)
     Loot* loot = NULL;
 	uint8 count = 0;
 
-	count = recvData.ReadBits(25);
-
-
-    std::vector<ObjectGuid> guids;
-
-	uint8* lootSlot = new uint8[count];
-
-	for (uint32 i = 0; i < count; ++i)
-	{
-        ObjectGuid guid;
-
-        guid[5] = recvData.ReadBit();
-        guid[6] = recvData.ReadBit();
-        guid[7] = recvData.ReadBit();
-        guid[4] = recvData.ReadBit();
-        guid[3] = recvData.ReadBit();
-        guid[0] = recvData.ReadBit();
-        guid[2] = recvData.ReadBit();
-        guid[1] = recvData.ReadBit();
-
-        guids.push_back(guid);
-	}
-
-	for (uint32 i = 0; i < count; ++i)
-	{
-        ObjectGuid &guid = guids.at(i);
-        recvData.ReadByteSeq(guid[4]);
-        recvData.ReadByteSeq(guid[1]);
-        recvData.ReadByteSeq(guid[5]);
-        recvData.ReadByteSeq(guid[3]);
-        recvData.ReadByteSeq(guid[6]);
-        recvData.ReadByteSeq(guid[7]);
-		recvData >> lootSlot[i];
-        recvData.ReadByteSeq(guid[0]);
-        recvData.ReadByteSeq(guid[2]);
-	}
-
-    for (uint32 i = 0; i < count; ++i)
-    {
-        sLog->outInfo(LOG_FILTER_NETWORKIO, "Loot guid %u, (%u)", GUID_LOPART(guids[i]), GuidHigh2TypeId(GUID_HIPART(guids[i])));
-    }
-
-    if (IS_GAMEOBJECT_GUID(lguid))
+	if (IS_GAMEOBJECT_GUID(lguid))
     {
         GameObject* go = player->GetMap()->GetGameObject(lguid);
 
@@ -133,15 +91,41 @@ void WorldSession::HandleAutostoreLootItemOpcode(WorldPacket& recvData)
         loot = &creature->loot;
     }
 
-    for(uint32 i = 0 ; i < count ; i++) {
-        player->StoreLootItem(lootSlot[i], loot, guids[i]);
+    uint32 l_Count = recvData.ReadBits(23);
+    std::map<uint32, ObjectGuid> l_Guids;
+
+    for (uint32 l_I = 0 ; l_I < l_Count ; ++l_I)
+    {
+        l_Guids[l_I][3] = recvData.ReadBit();
+        l_Guids[l_I][7] = recvData.ReadBit();
+        l_Guids[l_I][2] = recvData.ReadBit();
+        l_Guids[l_I][4] = recvData.ReadBit();
+        l_Guids[l_I][0] = recvData.ReadBit();
+        l_Guids[l_I][6] = recvData.ReadBit();
+        l_Guids[l_I][5] = recvData.ReadBit();
+        l_Guids[l_I][1] = recvData.ReadBit();
+    }
+
+    for (uint32 l_I = 0 ; l_I < l_Count ; ++l_I)
+    {
+        uint8 l_LootSlot = 0;
+
+        recvData.ReadByteSeq(l_Guids[l_I][4]);
+        recvData.ReadByteSeq(l_Guids[l_I][7]);
+        recvData.ReadByteSeq(l_Guids[l_I][6]);
+        recvData.ReadByteSeq(l_Guids[l_I][5]);
+        recvData >> l_LootSlot;
+        recvData.ReadByteSeq(l_Guids[l_I][3]);
+        recvData.ReadByteSeq(l_Guids[l_I][1]);
+        recvData.ReadByteSeq(l_Guids[l_I][0]);
+        recvData.ReadByteSeq(l_Guids[l_I][2]);
+
+        player->StoreLootItem(l_LootSlot, loot, lguid);
     }
 
     // If player is removing the last LootItem, delete the empty container.
     if (loot->isLooted() && IS_ITEM_GUID(lguid))
         player->GetSession()->DoLootRelease(lguid);
-
-    delete[] lootSlot;
 }
 
 void WorldSession::HandleLootMoneyOpcode(WorldPacket& /*recvData*/)
@@ -237,7 +221,7 @@ void WorldSession::HandleLootMoneyOpcode(WorldPacket& /*recvData*/)
 
                 WorldPacket data(SMSG_LOOT_MONEY_NOTIFY, 4 + 1);
                 data << uint32(goldPerPlayer);
-                data << uint8(playersNear.size() > 1); // Controls the text displayed in chat. 1 is "Your share is..." and 0 is "You loot..."
+                data << uint8(playersNear.size() <= 1); // Controls the text displayed in chat. 1 is "Your share is..." and 0 is "You loot..."
                 (*i)->GetSession()->SendPacket(&data);
             }
         }
@@ -252,7 +236,8 @@ void WorldSession::HandleLootMoneyOpcode(WorldPacket& /*recvData*/)
 
             WorldPacket data(SMSG_LOOT_MONEY_NOTIFY, 4 + 1);
             data << uint32(loot->gold);
-            data << uint8(0);   // "You loot..."
+            data.WriteBit(1);   // "You loot..."
+            data.FlushBits();
             SendPacket(&data);
         }
 
@@ -273,23 +258,23 @@ void WorldSession::HandleLootOpcode(WorldPacket& recvData)
     sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: CMSG_LOOT");
 
     ObjectGuid guid;
-    guid[1] = recvData.ReadBit();
-    guid[2] = recvData.ReadBit();
+    guid[0] = recvData.ReadBit();
+    guid[6] = recvData.ReadBit();
     guid[7] = recvData.ReadBit();
     guid[3] = recvData.ReadBit();
-    guid[6] = recvData.ReadBit();
-    guid[0] = recvData.ReadBit();
-    guid[4] = recvData.ReadBit();
     guid[5] = recvData.ReadBit();
+    guid[1] = recvData.ReadBit();
+    guid[2] = recvData.ReadBit();
+    guid[4] = recvData.ReadBit();
 
-    recvData.ReadByteSeq(guid[1]);
-    recvData.ReadByteSeq(guid[3]);
     recvData.ReadByteSeq(guid[5]);
-    recvData.ReadByteSeq(guid[4]);
+    recvData.ReadByteSeq(guid[1]);
+    recvData.ReadByteSeq(guid[2]);
+    recvData.ReadByteSeq(guid[6]);
     recvData.ReadByteSeq(guid[0]);
     recvData.ReadByteSeq(guid[7]);
-    recvData.ReadByteSeq(guid[6]);
-    recvData.ReadByteSeq(guid[2]);
+    recvData.ReadByteSeq(guid[3]);
+    recvData.ReadByteSeq(guid[4]);
 
     // Check possible cheat
     if (!_player->isAlive())
@@ -309,23 +294,23 @@ void WorldSession::HandleLootReleaseOpcode(WorldPacket& recvData)
     // cheaters can modify lguid to prevent correct apply loot release code and re-loot
     // use internal stored guid
     ObjectGuid guid;
-    guid[4] = recvData.ReadBit();
-    guid[0] = recvData.ReadBit();
-    guid[6] = recvData.ReadBit();
-    guid[2] = recvData.ReadBit();
     guid[3] = recvData.ReadBit();
-    guid[7] = recvData.ReadBit();
+    guid[6] = recvData.ReadBit();
     guid[1] = recvData.ReadBit();
+    guid[0] = recvData.ReadBit();
+    guid[7] = recvData.ReadBit();
+    guid[2] = recvData.ReadBit();
     guid[5] = recvData.ReadBit();
+    guid[4] = recvData.ReadBit();
 
     recvData.ReadByteSeq(guid[0]);
-    recvData.ReadByteSeq(guid[4]);
-    recvData.ReadByteSeq(guid[1]);
     recvData.ReadByteSeq(guid[6]);
+    recvData.ReadByteSeq(guid[4]);
     recvData.ReadByteSeq(guid[7]);
+    recvData.ReadByteSeq(guid[1]);
+    recvData.ReadByteSeq(guid[2]);
     recvData.ReadByteSeq(guid[5]);
     recvData.ReadByteSeq(guid[3]);
-    recvData.ReadByteSeq(guid[2]);
 
 	if (uint64 lguid = GetPlayer()->GetLootGUID())
         if (lguid == guid)

@@ -19,6 +19,270 @@
 #ifndef _UPDATEFIELDS_H
 #define _UPDATEFIELDS_H
 
+struct CGObjectData
+{
+    uint32 m_guid[2];
+    uint32 m_data[2];
+    uint32 m_type;
+    uint32 m_entryID;
+    uint32 m_dynamicFlags;
+    uint32 m_scale;
+};
+
+struct CGItemData
+{
+    uint32 m_owner[2];
+    uint32 m_containedIn[2];
+    uint32 m_creator[2];
+    uint32 m_giftCreator[2];
+    uint32 m_stackCount;
+    uint32 m_expiration;
+    uint32 m_spellCharges[5];
+    uint32 m_dynamicFlags;
+    uint32 m_enchantment[39];
+    uint32 m_propertySeed;
+    uint32 m_randomPropertiesID;
+    uint32 m_durability;
+    uint32 m_maxDurability;
+    uint32 m_createPlayedTime;
+    uint32 m_modifiersMask;
+};
+
+struct CGContainerData
+{
+    uint32 m_slots[72];
+    uint32 m_numSlots;
+};
+
+struct CGUnitData
+{
+    uint32 charm[2];
+    uint32 summon[2];
+    uint32 critter[2];
+    uint32 charmedBy[2];
+    uint32 summonedBy[2];
+    uint32 createdBy[2];
+    uint32 demonCreator[2];
+    uint32 target[2];
+    uint32 battlePetCompanionGUID[2];
+    uint32 channelObject[2];
+    uint32 channelSpell;
+    uint32 summonedByHomeRealm;
+    uint32 sex;
+    uint32 displayPower;
+    uint32 overrideDisplayPowerID;
+    uint32 health;
+    uint32 power[5];
+    uint32 maxHealth;
+    uint32 maxPower[5];
+    uint32 powerRegenFlatModifier[5];
+    uint32 powerRegenInterruptedFlatModifier[5];
+    uint32 level;
+    uint32 effectiveLevel;
+    uint32 factionTemplate;
+    uint32 virtualItemID[3];
+    uint32 flags;
+    uint32 flags2;
+    uint32 auraState;
+    uint32 attackRoundBaseTime[2];
+    uint32 rangedAttackRoundBaseTime;
+    uint32 boundingRadius;
+    uint32 combatReach;
+    uint32 displayID;
+    uint32 nativeDisplayID;
+    uint32 mountDisplayID;
+    uint32 minDamage;
+    uint32 maxDamage;
+    uint32 minOffHandDamage;
+    uint32 maxOffHandDamage;
+    uint32 animTier;
+    uint32 petNumber;
+    uint32 petNameTimestamp;
+    uint32 petExperience;
+    uint32 petNextLevelExperience;
+    uint32 modCastingSpeed;
+    uint32 modSpellHaste;
+    uint32 modHaste;
+    uint32 modRangedHaste;
+    uint32 modHasteRegen;
+    uint32 createdBySpell;
+    uint32 npcFlags;
+    uint32 emoteState;
+    uint32 stats[5];
+    uint32 statPosBuff[5];
+    uint32 statNegBuff[5];
+    uint32 resistances[7];
+    uint32 resistanceBuffModsPositive[7];
+    uint32 resistanceBuffModsNegative[7];
+    uint32 baseMana;
+    uint32 baseHealth;
+    uint32 shapeshiftForm;
+    uint32 attackPower;
+    uint32 attackPowerModPos;
+    uint32 attackPowerModNeg;
+    uint32 attackPowerMultiplier;
+    uint32 rangedAttackPower;
+    uint32 rangedAttackPowerModPos;
+    uint32 rangedAttackPowerModNeg;
+    uint32 rangedAttackPowerMultiplier;
+    uint32 minRangedDamage;
+    uint32 maxRangedDamage;
+    uint32 powerCostModifier[7];
+    uint32 powerCostMultiplier[7];
+    uint32 maxHealthModifier;
+    uint32 hoverHeight;
+    uint32 minItemLevel;
+    uint32 maxItemLevel;
+    uint32 wildBattlePetLevel;
+    uint32 battlePetCompanionNameTimestamp;
+    uint32 interactSpellID;
+};
+
+struct CGPlayerData
+{
+    uint32 duelArbiter[2];
+    uint32 playerFlags;
+    uint32 guildRankID;
+    uint32 guildDeleteDate;
+    uint32 guildLevel;
+    uint32 hairColorID;
+    uint32 restState;
+    uint32 arenaFaction;
+    uint32 duelTeam;
+    uint32 guildTimeStamp;
+    uint32 questLog[750];
+    uint32 visibleItems[38];
+    uint32 playerTitle;
+    uint32 fakeInebriation;
+    uint32 virtualPlayerRealm;
+    uint32 currentSpecID;
+    uint32 taxiMountAnimKitID;
+    uint32 currentBattlePetBreedQuality;
+    uint32 local_invSlots[172];
+    uint32 local_farsightObject[2];
+    uint32 local_knownTitles[10];
+    uint32 local_coinage[2];
+    uint32 local_XP;
+    uint32 local_nextLevelXP;
+    uint32 local_skill[448];
+    uint32 local_characterPoints;
+    uint32 local_maxTalentTiers;
+    uint32 local_trackCreatureMask;
+    uint32 local_trackResourceMask;
+    uint32 local_mainhandExpertise;
+    uint32 local_offhandExpertise;
+    uint32 local_rangedExpertise;
+    uint32 local_combatRatingExpertise;
+    uint32 local_blockPercentage;
+    uint32 local_dodgePercentage;
+    uint32 local_parryPercentage;
+    uint32 local_critPercentage;
+    uint32 local_rangedCritPercentage;
+    uint32 local_offhandCritPercentage;
+    uint32 local_spellCritPercentage[7];
+    uint32 local_shieldBlock;
+    uint32 local_shieldBlockCritPercentage;
+    uint32 local_mastery;
+    uint32 local_pvpPowerDamage;
+    uint32 local_pvpPowerHealing;
+    uint32 local_exploredZones[200];
+    uint32 local_restStateBonusPool;
+    uint32 local_modDamageDonePos[7];
+    uint32 local_modDamageDoneNeg[7];
+    uint32 local_modDamageDonePercent[7];
+    uint32 local_modHealingDonePos;
+    uint32 local_modHealingPercent;
+    uint32 local_modHealingDonePercent;
+    uint32 local_modPeriodicHealingDonePercent;
+    uint32 local_weaponDmgMultipliers[3];
+    uint32 local_modSpellPowerPercent;
+    uint32 local_modResiliencePercent;
+    uint32 local_overrideSpellPowerByAPPercent;
+    uint32 local_overrideAPBySpellPowerPercent;
+    uint32 local_modTargetResistance;
+    uint32 local_modTargetPhysicalResistance;
+    uint32 local_lifetimeMaxRank;
+    uint32 local_selfResSpell;
+    uint32 local_pvpMedals;
+    uint32 local_buybackPrice[12];
+    uint32 local_buybackTimestamp[12];
+    uint32 local_yesterdayHonorableKills;
+    uint32 local_lifetimeHonorableKills;
+    uint32 local_watchedFactionIndex;
+    uint32 local_combatRatings[27];
+    uint32 local_pvpInfo[24];
+    uint32 local_maxLevel;
+    uint32 local_runeRegen[4];
+    uint32 local_noReagentCostMask[4];
+    uint32 local_glyphSlots[6];
+    uint32 local_glyphs[6];
+    uint32 local_glyphSlotsEnabled;
+    uint32 local_petSpellPower;
+    uint32 local_researching[8];
+    uint32 local_professionSkillLine[2];
+    uint32 local_uiHitModifier;
+    uint32 local_uiSpellHitModifier;
+    uint32 local_homeRealmTimeOffset;
+    uint32 local_modPetHaste;
+    uint32 local_summonedBattlePetGUID[2];
+    uint32 local_overrideSpellsID;
+    uint32 local_lfgBonusFactionID;
+    uint32 local_lootSpecID;
+    uint32 local_overrideZonePVPType;
+    uint32 local_itemLevelDelta;
+};
+
+struct CGGameObjectData
+{
+    uint32 m_createdBy[2];
+    uint32 m_displayID;
+    uint32 m_flags;
+    uint32 m_parentRotation[4];
+    uint32 m_factionTemplate;
+    uint32 m_level;
+    uint32 m_percentHealth;
+    uint32 m_stateSpellVisualID;
+};
+
+struct CGDynamicObjectData
+{
+    uint32 m_caster[2];
+    uint32 m_typeAndVisualID;
+    uint32 m_spellID;
+    uint32 m_radius;
+    uint32 m_castTime;
+};
+
+struct CGCorpseData
+{
+    uint32 m_owner[2];
+    uint32 m_partyGUID[2];
+    uint32 m_displayID;
+    uint32 m_items[19];
+    uint32 m_skinID;
+    uint32 m_facialHairStyleID;
+    uint32 m_flags;
+    uint32 m_dynamicFlags;
+};
+
+struct CGAreaTriggerData
+{
+    uint32 m_caster[2];
+    uint32 m_duration;
+    uint32 m_spellID;
+    uint32 m_spellVisualID;
+    uint32 m_explicitScale;
+};
+
+struct CGSceneObjectData
+{
+    uint32 m_scriptPackageID;
+    uint32 m_rndSeedVal;
+    uint32 m_createdBy[2];
+    uint32 m_sceneType;
+};
+
+
 enum EObjectFields
 {
 	OBJECT_FIELD_GUID                                = 0x0000, // Size: 2, Type: LONG, Flags: PUBLIC
@@ -32,7 +296,7 @@ enum EObjectFields
 
 enum EItemFields
 {
-   ITEM_FIELD_OWNER                                 = OBJECT_END + 0x0000, // Size: 2, Type: LONG, Flags: PUBLIC
+    ITEM_FIELD_OWNER                                 = OBJECT_END + 0x0000, // Size: 2, Type: LONG, Flags: PUBLIC
     ITEM_FIELD_CONTAINED                             = OBJECT_END + 0x0002, // Size: 2, Type: LONG, Flags: PUBLIC
     ITEM_FIELD_CREATOR                               = OBJECT_END + 0x0004, // Size: 2, Type: LONG, Flags: PUBLIC
     ITEM_FIELD_GIFTCREATOR                           = OBJECT_END + 0x0006, // Size: 2, Type: LONG, Flags: PUBLIC
@@ -148,8 +412,8 @@ enum EUnitFields
     UNIT_FIELD_MOD_RANGED_HASTE                      = OBJECT_END + 0x004C, // Size: 1, Type: FLOAT, Flags: PUBLIC
     UNIT_MOD_HASTE_REGEN                             = OBJECT_END + 0x004D,
     UNIT_CREATED_BY_SPELL                            = OBJECT_END + 0x004E, // Size: 1, Type: INT, Flags: PUBLIC
-    UNIT_NPC_FLAGS                                   = OBJECT_END + 0x004F, // Size: 1, Type: INT, Flags: DYNAMIC
-    UNIT_NPC_EMOTESTATE                              = OBJECT_END + 0x0050, // Size: 2, Type: INT, Flags: PUBLIC
+    UNIT_NPC_FLAGS                                   = OBJECT_END + 0x004F, // Size: 2, Type: INT, Flags: DYNAMIC
+    UNIT_NPC_EMOTESTATE                              = OBJECT_END + 0x0051, // Size: 1, Type: INT, Flags: PUBLIC
     UNIT_FIELD_STAT0                                 = OBJECT_END + 0x0052, // Size: 1, Type: INT, Flags: PRIVATE, OWNER
     UNIT_FIELD_STAT1                                 = OBJECT_END + 0x0053, // Size: 1, Type: INT, Flags: PRIVATE, OWNER
     UNIT_FIELD_STAT2                                 = OBJECT_END + 0x0054, // Size: 1, Type: INT, Flags: PRIVATE, OWNER
@@ -201,163 +465,97 @@ enum EUnitDynamicField
 
 enum EPlayerFields
 {
-   PLAYER_DUEL_ARBITER                              = UNIT_END + 0x0000, // Size: 2, Type: LONG, Flags: PUBLIC
-    PLAYER_FLAGS                                     = UNIT_END + 0x0002, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_GUILDRANK                                 = UNIT_END + 0x0003, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_GUILDDELETE_DATE                          = UNIT_END + 0x0004, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_GUILDLEVEL                                = UNIT_END + 0x0005, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_BYTES                                     = UNIT_END + 0x0006, // Size: 1, Type: BYTES, Flags: PUBLIC
-    PLAYER_BYTES_2                                   = UNIT_END + 0x0007, // Size: 1, Type: BYTES, Flags: PUBLIC
-    PLAYER_BYTES_3                                   = UNIT_END + 0x0008, // Size: 1, Type: BYTES, Flags: PUBLIC
-    PLAYER_DUEL_TEAM                                 = UNIT_END + 0x0009, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_GUILD_TIMESTAMP                           = UNIT_END + 0x000A, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_QUEST_LOG_1_1                             = UNIT_END + 0x000B, // Size: 1, Type: INT, Flags: PARTY_MEMBER
-    PLAYER_VISIBLE_ITEM_1_ENTRYID                    = UNIT_END + 0x02F9, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_1_ENCHANTMENT                = UNIT_END + 0x02FA, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_2_ENTRYID                    = UNIT_END + 0x02FB, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_2_ENCHANTMENT                = UNIT_END + 0x02FC, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_3_ENTRYID                    = UNIT_END + 0x02FD, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_3_ENCHANTMENT                = UNIT_END + 0x02FE, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_4_ENTRYID                    = UNIT_END + 0x02FF, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_4_ENCHANTMENT                = UNIT_END + 0x0300, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_5_ENTRYID                    = UNIT_END + 0x0301, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_5_ENCHANTMENT                = UNIT_END + 0x0302, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_6_ENTRYID                    = UNIT_END + 0x0303, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_6_ENCHANTMENT                = UNIT_END + 0x0304, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_7_ENTRYID                    = UNIT_END + 0x0305, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_7_ENCHANTMENT                = UNIT_END + 0x0306, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_8_ENTRYID                    = UNIT_END + 0x0307, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_8_ENCHANTMENT                = UNIT_END + 0x0308, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_9_ENTRYID                    = UNIT_END + 0x0309, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_9_ENCHANTMENT                = UNIT_END + 0x030A, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_10_ENTRYID                   = UNIT_END + 0x030B, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_10_ENCHANTMENT               = UNIT_END + 0x030C, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_11_ENTRYID                   = UNIT_END + 0x030D, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_11_ENCHANTMENT               = UNIT_END + 0x030E, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_12_ENTRYID                   = UNIT_END + 0x030F, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_12_ENCHANTMENT               = UNIT_END + 0x0310, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_13_ENTRYID                   = UNIT_END + 0x0311, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_13_ENCHANTMENT               = UNIT_END + 0x0312, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_14_ENTRYID                   = UNIT_END + 0x0313, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_14_ENCHANTMENT               = UNIT_END + 0x0314, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_15_ENTRYID                   = UNIT_END + 0x0315, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_15_ENCHANTMENT               = UNIT_END + 0x0316, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_16_ENTRYID                   = UNIT_END + 0x0317, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_16_ENCHANTMENT               = UNIT_END + 0x0318, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_17_ENTRYID                   = UNIT_END + 0x0319, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_17_ENCHANTMENT               = UNIT_END + 0x031A, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_18_ENTRYID                   = UNIT_END + 0x031B, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_18_ENCHANTMENT               = UNIT_END + 0x031C, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_19_ENTRYID                   = UNIT_END + 0x031D, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_VISIBLE_ITEM_19_ENCHANTMENT               = UNIT_END + 0x031E, // Size: 1, Type: TWO_SHORT, Flags: PUBLIC
-    PLAYER_CHOSEN_TITLE                              = UNIT_END + 0x031F, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_FAKE_INEBRIATION                          = UNIT_END + 0x0320, // Size: 1, Type: INT, Flags: PUBLIC
-    PLAYER_FIELD_HOME_PLAYER_REALM                   = UNIT_END + 0x0321,
-    PLAYER_FIELD_CURRENT_SPEC_ID                     = UNIT_END + 0x0322,
-    PLAYER_FIELD_TAXI_MOUNT_ANIM_KIT_ID              = UNIT_END + 0x0323,                       //MIRROR_ALL
-    PLAYER_FIELD_CURRENT_BATTLE_PET_BREED_QUALITY    = UNIT_END + 0x0324,                       //MIRROR_ALL
-    PLAYER_END_NOT_SELF                              = UNIT_END + 0x0325,
-
-    PLAYER_FIELD_INV_SLOT_HEAD                       = UNIT_END + 0x0325, // Size: 46, Type: LONG, Flags: PRIVATE
-    PLAYER_FIELD_PACK_SLOT_1                         = UNIT_END + 0x0353, // Size: 32, Type: LONG, Flags: PRIVATE
-    PLAYER_FIELD_BANK_SLOT_1                         = UNIT_END + 0x0373, // Size: 56, Type: LONG, Flags: PRIVATE
-    PLAYER_FIELD_BANKBAG_SLOT_1                      = UNIT_END + 0x03AB, // Size: 14, Type: LONG, Flags: PRIVATE
-    PLAYER_FIELD_VENDORBUYBACK_SLOT_1                = UNIT_END + 0x03B9, // Size: 24, Type: LONG, Flags: PRIVATE
-
-    PLAYER_FARSIGHT                                  = UNIT_END + 0x03D1, // Size: 2, Type: LONG, Flags: PRIVATE
-    PLAYER__FIELD_KNOWN_TITLES                       = UNIT_END + 0x03D3, // Size: 2, Type: LONG, Flags: PRIVATE
-    PLAYER__FIELD_KNOWN_TITLES1                      = UNIT_END + 0x03D5, // Size: 2, Type: LONG, Flags: PRIVATE
-    PLAYER__FIELD_KNOWN_TITLES2                      = UNIT_END + 0x03D7, // Size: 2, Type: LONG, Flags: PRIVATE
-    PLAYER__FIELD_KNOWN_TITLES3                      = UNIT_END + 0x03D9, // Size: 2, Type: LONG, Flags: PRIVATE
-
-    PLAYER_FIELD_COINAGE                             = UNIT_END + 0x03DD, // Size: 2, Type: LONG, Flags: PRIVATE   
-    PLAYER_XP                                        = UNIT_END + 0x03DF, // Size: 1, Type: INT, Flags: PRIVATE
-    PLAYER_NEXT_LEVEL_XP                             = UNIT_END + 0x03E0, // Size: 1, Type: INT, Flags: PRIVATE
-    PLAYER_SKILL_LINEID_0                            = UNIT_END + 0x03E1, // Size: 64, Type: TWO_SHORT, Flags: PRIVATE
-    PLAYER_SKILL_STEP_0                              = UNIT_END + 0x0421, // Size: 64, Type: TWO_SHORT, Flags: PRIVATE
-    PLAYER_SKILL_RANK_0                              = UNIT_END + 0x0461, // Size: 64, Type: TWO_SHORT, Flags: PRIVATE
-    PLAYER_SKILL_STARTINGRANK                        = UNIT_END + 0x04A1, // Size: 64, Type: TWO_SHORT, Flags: PRIVATE
-    PLAYER_SKILL_MAX_RANK_0                          = UNIT_END + 0x04E1, // Size: 64, Type: TWO_SHORT, Flags: PRIVATE
-    PLAYER_SKILL_MODIFIER_0                          = UNIT_END + 0x0521, // Size: 64, Type: TWO_SHORT, Flags: PRIVATE
-    PLAYER_SKILL_TALENT_0                            = UNIT_END + 0x056F, // Size: 64, Type: TWO_SHORT, Flags: PRIVATE 
-
-    PLAYER_CHARACTER_POINTS                          = UNIT_END + 0x05A1, // Size: 1, Type: INT, Flags: PRIVATE
-    PLAYER_MAX_TALENT_TIERS                          = UNIT_END + 0x05A2,
-    PLAYER_TRACK_CREATURES                           = UNIT_END + 0x05A3, // Size: 1, Type: INT, Flags: PRIVATE
-    PLAYER_TRACK_RESOURCES                           = UNIT_END + 0x05A4, // Size: 1, Type: INT, Flags: PRIVATE
-    PLAYER_EXPERTISE                                 = UNIT_END + 0x05A5, // Size: 1, Type: INT, Flags: PRIVATE
-    PLAYER_OFFHAND_EXPERTISE                         = UNIT_END + 0x05A6, // Size: 1, Type: INT, Flags: PRIVATE
-    PLAYER_RANGED_EXPERTISE                          = UNIT_END + 0x05A7,
-    PLAYER_COMBAT_RATING_EXPERTISE                   = UNIT_END + 0x05A8,
-    PLAYER_BLOCK_PERCENTAGE                          = UNIT_END + 0x05A9, // Size: 1, Type: FLOAT, Flags: PRIVATE
-    PLAYER_DODGE_PERCENTAGE                          = UNIT_END + 0x05AA, // Size: 1, Type: FLOAT, Flags: PRIVATE
-    PLAYER_PARRY_PERCENTAGE                          = UNIT_END + 0x05AB, // Size: 1, Type: FLOAT, Flags: PRIVATE
-    PLAYER_CRIT_PERCENTAGE                           = UNIT_END + 0x05AC, // Size: 1, Type: FLOAT, Flags: PRIVATE
-    PLAYER_RANGED_CRIT_PERCENTAGE                    = UNIT_END + 0x05AD, // Size: 1, Type: FLOAT, Flags: PRIVATE
-    PLAYER_OFFHAND_CRIT_PERCENTAGE                   = UNIT_END + 0x05AE, // Size: 1, Type: FLOAT, Flags: PRIVATE
-    PLAYER_SPELL_CRIT_PERCENTAGE1                    = UNIT_END + 0x05AF, // Size: 7, Type: FLOAT, Flags: PRIVATE
-    PLAYER_SHIELD_BLOCK                              = UNIT_END + 0x05B6, // Size: 1, Type: INT, Flags: PRIVATE
-    PLAYER_SHIELD_BLOCK_CRIT_PERCENTAGE              = UNIT_END + 0x05B7, // Size: 1, Type: FLOAT, Flags: PRIVATE
-    PLAYER_MASTERY                                   = UNIT_END + 0x05B8, // Size: 1, Type: FLOAT, Flags: PRIVATE
-    PLAYER_FIELD_PVP_POWER_DAMAGE                    = UNIT_END + 0x05B9,
-    PLAYER_FIELD_PVP_POWER_HEALING                   = UNIT_END + 0x05BA,
-    PLAYER_EXPLORED_ZONES_1                          = UNIT_END + 0x05BB, // Size: 200, Type: BYTES, Flags: PRIVATE
-
-    PLAYER_REST_STATE_EXPERIENCE                     = UNIT_END + 0x0683, //it's PLAYER_REST_STATE_BONUS_POOL ??
-    PLAYER_FIELD_MOD_DAMAGE_DONE_POS                 = UNIT_END + 0x0684, // Size: 7, Type: INT, Flags: PRIVATE
-    PLAYER_FIELD_MOD_DAMAGE_DONE_NEG                 = UNIT_END + 0x068B, // Size: 7, Type: INT, Flags: PRIVATE
-    PLAYER_FIELD_MOD_DAMAGE_DONE_PCT                 = UNIT_END + 0x0692, // Size: 7, Type: INT, Flags: PRIVATE
-    PLAYER_FIELD_MOD_HEALING_DONE_POS                = UNIT_END + 0x0699, // Size: 1, Type: INT, Flags: PRIVATE
-    PLAYER_FIELD_MOD_HEALING_PCT                     = UNIT_END + 0x069A, // Size: 1, Type: FLOAT, Flags: PRIVATE
-    PLAYER_FIELD_MOD_HEALING_DONE_PCT                = UNIT_END + 0x069B, // Size: 1, Type: FLOAT, Flags: PRIVATE
-    PLAYER_FIELD_MOD_PERIODIC_HEALING_DONE_PERCENT   = UNIT_END + 0x069C,
-    PLAYER_FIELD_WEAPON_DMG_MULTIPLIERS              = UNIT_END + 0x069D, // Size: 3, Type: FLOAT, Flags: PRIVATE
-    PLAYER_FIELD_MOD_SPELL_POWER_PCT                 = UNIT_END + 0x06A0, // Size: 1, Type: FLOAT, Flags: PRIVATE
-    PLAYER_FIELD_MOD_RESILIENCE_PERCENT              = UNIT_END + 0x06A1,
-    PLAYER_FIELD_OVERRIDE_SPELL_POWER_BY_AP_PCT      = UNIT_END + 0x06A2, // Size: 1, Type: FLOAT, Flags: PRIVATE
-    PLAYER_FIELD_OVERRIDE_APBY_SPELL_POWER_PERCENT   = UNIT_END + 0x06A3,
-    PLAYER_FIELD_MOD_TARGET_RESISTANCE               = UNIT_END + 0x06A4, // Size: 1, Type: INT, Flags: PRIVATE
-    PLAYER_FIELD_MOD_TARGET_PHYSICAL_RESISTANCE      = UNIT_END + 0x06A5, // Size: 1, Type: INT, Flags: PRIVATE
-
-    PLAYER_FIELD_BYTES                               = UNIT_END + 0x06A6, // Size: 1, Type: BYTES, Flags: PRIVATE PLAYER_FIELD_LIFETIME_MAX_RANK?
-
-    PLAYER_SELF_RES_SPELL                            = UNIT_END + 0x06A7, // Size: 1, Type: INT, Flags: PRIVATE
-    PLAYER_FIELD_PVP_MEDALS                          = UNIT_END + 0x06A8, // Size: 1, Type: INT, Flags: PRIVATE
-    PLAYER_FIELD_BUYBACK_PRICE_1                     = UNIT_END + 0x06A9, // Size: 12, Type: INT, Flags: PRIVATE
-    PLAYER_FIELD_BUYBACK_TIMESTAMP_1                 = UNIT_END + 0x06B5, // Size: 12, Type: INT, Flags: PRIVATE
-    PLAYER_FIELD_KILLS                               = UNIT_END + 0x06C1, // Size: 1, Type: TWO_SHORT, Flags: PRIVATE
-    PLAYER_FIELD_LIFETIME_HONORABLE_KILLS            = UNIT_END + 0x06C2, // Size: 1, Type: INT, Flags: PRIVATE
-    PLAYER_FIELD_WATCHED_FACTION_INDEX               = UNIT_END + 0x06C3, // Size: 1, Type: INT, Flags: PRIVATE
-    PLAYER_FIELD_COMBAT_RATING_1                     = UNIT_END + 0x06C4, // Size: 27, Type: INT, Flags: PRIVATE
-    PLAYER_FIELD_ARENA_TEAM_INFO_1_1                 = UNIT_END + 0x06DF, // Size: 24, Type: INT, Flags: PRIVATE
-
-    //PLAYER_FIELD_BATTLEGROUND_RATING                 = UNIT_END + 0x06F2, // Size: 1, Type: INT, Flags: PRIVATE
-    PLAYER_FIELD_MAX_LEVEL                           = UNIT_END + 0x06F7, // Size: 1, Type: INT, Flags: PRIVATE
-    PLAYER_RUNE_REGEN_1                              = UNIT_END + 0x06F8, // Size: 4, Type: FLOAT, Flags: PRIVATE
-    PLAYER_NO_REAGENT_COST_1                         = UNIT_END + 0x06FC, // Size: 4, Type: INT, Flags: PRIVATE
-    PLAYER_FIELD_GLYPH_SLOTS_1                       = UNIT_END + 0x0700, // Size: 6, Type: INT, Flags: PRIVATE
-    PLAYER_FIELD_GLYPHS_1                            = UNIT_END + 0x0706, // Size: 6, Type: INT, Flags: PRIVATE
-
-    PLAYER_GLYPHS_ENABLED                            = UNIT_END + 0x070C, // Size: 1, Type: INT, Flags: PRIVATE
-    PLAYER_PET_SPELL_POWER                           = UNIT_END + 0x070D, // Size: 1, Type: INT, Flags: PRIVATE
-    PLAYER_FIELD_RESEARCHING_1                       = UNIT_END + 0x070E, // Size: 8, Type: TWO_SHORT, Flags: PRIVATE
-    PLAYER_PROFESSION_SKILL_LINE_1                   = UNIT_END + 0x0716, // Size: 2, Type: INT, Flags: PRIVATE
-    PLAYER_FIELD_UI_HIT_MODIFIER                     = UNIT_END + 0x0718, // Size: 1, Type: FLOAT, Flags: PRIVATE
-    PLAYER_FIELD_UI_SPELL_HIT_MODIFIER               = UNIT_END + 0x0719, // Size: 1, Type: FLOAT, Flags: PRIVATE
-    PLAYER_FIELD_HOME_REALM_TIME_OFFSET              = UNIT_END + 0x071A, // Size: 1, Type: INT, Flags: PRIVATE
-    //PLAYER_FIELD_MOD_RANGED_HASTE                    = UNIT_END + 0x071B, // Size: 1, Type: FLOAT, Flags: PRIVATE
-    PLAYER_FIELD_MOD_PET_HASTE                       = UNIT_END + 0x071B, // Size: 1, Type: FLOAT, Flags: PRIVATE
-    PLAYER_FIELD_SUMMONED_BATTLE_PET_GUID            = UNIT_END + 0x071C,
-    PLAYER_FIELD_OVERRIDE_SPELLS_ID                  = UNIT_END + 0x071E,
-    PLAYER_FIELD_LFG_BONUS_FACTION_ID                = UNIT_END + 0x071F,
-    PLAYER_FIELD_LOOT_SPEC_ID                        = UNIT_END + 0x0720,
-    PLAYER_FIELD_OVERRIDE_ZONE_PVP_TYPE              = UNIT_END + 0x0721,
-    PLAYER_FIELD_ITEM_LEVEL_DELTA                    = UNIT_END + 0x0722,
-    //PLAYER_FIELD_DAILY_QUESTS_1                    = UNIT_END + 0x0489, // (Should not in MOP anymore, just temp for compile)
-    //PLAYER_FIELD_MOD_HASTE                         = UNIT_END + 0x04D2, // (Should not in MOP anymore, just temp for compile)
-    //PLAYER_FIELD_BYTES                             = UNIT_END + 0x0439, // (Should not in MOP anymore, just temp for compile)
-    //PLAYER_FIELD_BYTES2                            = UNIT_END + 0x0456, // (Should not in MOP anymore, just temp for compile)
-    PLAYER_END                                       = UNIT_END + 0x0723
+    PLAYER_DUEL_ARBITER                              = 160, // SIZE:2
+    PLAYER_FLAGS                                     = 162, // SIZE:1
+    PLAYER_GUILDRANK                                 = 163, // SIZE:1
+    PLAYER_GUILDDELETE_DATE                          = 164, // SIZE:1
+    PLAYER_GUILDLEVEL                                = 165, // SIZE:1
+    PLAYER_BYTES                                     = 166, // SIZE:1
+    PLAYER_BYTES_2                                   = 167, // SIZE:1
+    PLAYER_BYTES_3                                   = 168, // SIZE:1
+    PLAYER_DUEL_TEAM                                 = 169, // SIZE:1
+    PLAYER_GUILD_TIMESTAMP                           = 170, // SIZE:1
+    PLAYER_QUEST_LOG_1_1                             = 171, // SIZE:750
+    PLAYER_VISIBLE_ITEM_1_ENTRYID                    = 921, // SIZE:38
+    PLAYER_CHOSEN_TITLE                              = 959, // SIZE:1
+    PLAYER_FAKE_INEBRIATION                          = 960, // SIZE:1
+    PLAYER_FIELD_HOME_PLAYER_REALM                   = 961, // SIZE:1
+    PLAYER_FIELD_CURRENT_SPEC_ID                     = 962, // SIZE:1
+    PLAYER_FIELD_TAXI_MOUNT_ANIM_KIT_ID              = 963, // SIZE:1
+    PLAYER_FIELD_CURRENT_BATTLE_PET_BREED_QUALITY    = 964, // SIZE:1
+    PLAYER_FIELD_INV_SLOT_HEAD                       = 965, // SIZE:172
+    PLAYER_FARSIGHT                                  = 1137, // SIZE:2
+    PLAYER__FIELD_KNOWN_TITLES                       = 1139, // SIZE:10
+    PLAYER_FIELD_COINAGE                             = 1149, // SIZE:2
+    PLAYER_XP                                        = 1151, // SIZE:1
+    PLAYER_NEXT_LEVEL_XP                             = 1152, // SIZE:1
+    PLAYER_SKILL_LINEID_0                            = 1153, // SIZE:448
+    PLAYER_CHARACTER_POINTS                          = 1601, // SIZE:1
+    PLAYER_MAX_TALENT_TIERS                          = 1602, // SIZE:1
+    PLAYER_TRACK_CREATURES                           = 1603, // SIZE:1
+    PLAYER_TRACK_RESOURCES                           = 1604, // SIZE:1
+    PLAYER_EXPERTISE                                 = 1605, // SIZE:1
+    PLAYER_OFFHAND_EXPERTISE                         = 1606, // SIZE:1
+    PLAYER_RANGED_EXPERTISE                          = 1607, // SIZE:1c
+    PLAYER_COMBAT_RATING_EXPERTISE                   = 1608, // SIZE:1
+    PLAYER_BLOCK_PERCENTAGE                          = 1609, // SIZE:1
+    PLAYER_DODGE_PERCENTAGE                          = 1610, // SIZE:1
+    PLAYER_PARRY_PERCENTAGE                          = 1611, // SIZE:1
+    PLAYER_CRIT_PERCENTAGE                           = 1612, // SIZE:1
+    PLAYER_RANGED_CRIT_PERCENTAGE                    = 1613, // SIZE:1
+    PLAYER_OFFHAND_CRIT_PERCENTAGE                   = 1614, // SIZE:1
+    PLAYER_SPELL_CRIT_PERCENTAGE1                    = 1615, // SIZE:7
+    PLAYER_SHIELD_BLOCK                              = 1622, // SIZE:1
+    PLAYER_SHIELD_BLOCK_CRIT_PERCENTAGE              = 1623, // SIZE:1
+    PLAYER_MASTERY                                   = 1624, // SIZE:1
+    PLAYER_FIELD_PVP_POWER_DAMAGE                    = 1625, // SIZE:1
+    PLAYER_FIELD_PVP_POWER_HEALING                   = 1626, // SIZE:1
+    PLAYER_EXPLORED_ZONES_1                          = 1627, // SIZE:200
+    PLAYER_REST_STATE_EXPERIENCE                     = 1827, // SIZE:1
+    PLAYER_FIELD_MOD_DAMAGE_DONE_POS                 = 1828, // SIZE:7
+    PLAYER_FIELD_MOD_DAMAGE_DONE_NEG                 = 1835, // SIZE:7
+    PLAYER_FIELD_MOD_DAMAGE_DONE_PCT                 = 1842, // SIZE:7
+    PLAYER_FIELD_MOD_HEALING_DONE_POS                = 1849, // SIZE:1
+    PLAYER_FIELD_MOD_HEALING_PCT                     = 1850, // SIZE:1
+    PLAYER_FIELD_MOD_HEALING_DONE_PCT                = 1851, // SIZE:1
+    PLAYER_FIELD_MOD_PERIODIC_HEALING_DONE_PERCENT   = 1852, // SIZE:1
+    PLAYER_FIELD_WEAPON_DMG_MULTIPLIERS              = 1853, // SIZE:3
+    PLAYER_FIELD_MOD_SPELL_POWER_PCT                 = 1856, // SIZE:1
+    PLAYER_FIELD_MOD_RESILIENCE_PERCENT              = 1857, // SIZE:1
+    PLAYER_FIELD_OVERRIDE_SPELL_POWER_BY_AP_PCT      = 1858, // SIZE:1
+    PLAYER_FIELD_OVERRIDE_APBY_SPELL_POWER_PERCENT   = 1859, // SIZE:1
+    PLAYER_FIELD_MOD_TARGET_RESISTANCE               = 1860, // SIZE:1
+    PLAYER_FIELD_MOD_TARGET_PHYSICAL_RESISTANCE      = 1861, // SIZE:1
+    PLAYER_FIELD_BYTES                               = 1862, // SIZE:1 PLAYER_FIELD_LIFETIME_MAX_RANK
+    PLAYER_SELF_RES_SPELL                            = 1863, // SIZE:1
+    PLAYER_FIELD_PVP_MEDALS                          = 1864, // SIZE:1
+    PLAYER_FIELD_BUYBACK_PRICE_1                     = 1865, // SIZE:12
+    PLAYER_FIELD_BUYBACK_TIMESTAMP_1                 = 1877, // SIZE:12
+    PLAYER_FIELD_KILLS                               = 1889, // SIZE:1
+    PLAYER_FIELD_LIFETIME_HONORABLE_KILLS            = 1890, // SIZE:1
+    PLAYER_FIELD_WATCHED_FACTION_INDEX               = 1891, // SIZE:1
+    PLAYER_FIELD_COMBAT_RATING_1                     = 1892, // SIZE:27
+    PLAYER_FIELD_ARENA_TEAM_INFO_1_1                 = 1919, // SIZE:24
+    PLAYER_FIELD_MAX_LEVEL                           = 1943, // SIZE:1
+    PLAYER_RUNE_REGEN_1                              = 1944, // SIZE:4
+    PLAYER_NO_REAGENT_COST_1                         = 1948, // SIZE:4
+    PLAYER_FIELD_GLYPH_SLOTS_1                       = 1952, // SIZE:6
+    PLAYER_FIELD_GLYPHS_1                            = 1958, // SIZE:6
+    PLAYER_GLYPHS_ENABLED                            = 1964, // SIZE:1
+    PLAYER_PET_SPELL_POWER                           = 1965, // SIZE:1
+    PLAYER_FIELD_RESEARCHING_1                       = 1966, // SIZE:8
+    PLAYER_PROFESSION_SKILL_LINE_1                   = 1974, // SIZE:2
+    PLAYER_FIELD_UI_HIT_MODIFIER                     = 1976, // SIZE:1
+    PLAYER_FIELD_UI_SPELL_HIT_MODIFIER               = 1977, // SIZE:1
+    PLAYER_FIELD_HOME_REALM_TIME_OFFSET              = 1978, // SIZE:1
+    PLAYER_FIELD_MOD_PET_HASTE                       = 1979, // SIZE:1
+    PLAYER_FIELD_SUMMONED_BATTLE_PET_GUID            = 1980, // SIZE:2
+    PLAYER_FIELD_OVERRIDE_SPELLS_ID                  = 1982, // SIZE:1
+    PLAYER_FIELD_LFG_BONUS_FACTION_ID                = 1983, // SIZE:1
+    PLAYER_FIELD_LOOT_SPEC_ID                        = 1984, // SIZE:1
+    PLAYER_FIELD_OVERRIDE_ZONE_PVP_TYPE              = 1985, // SIZE:1
+    PLAYER_FIELD_ITEM_LEVEL_DELTA                    = 1986, // SIZE:1
+    PLAYER_END                                       = 1987
 };
 
 enum EPlayerDynamicFields
@@ -369,15 +567,15 @@ enum EPlayerDynamicFields
 
 enum EGameObjectFields
 {
-    OBJECT_FIELD_CREATED_BY                          = OBJECT_END + 0x0000, // Size: 2, Type: LONG, Flags: PUBLIC
-    GAMEOBJECT_DISPLAYID                             = OBJECT_END + 0x0002, // Size: 1, Type: INT, Flags: PUBLIC
-    GAMEOBJECT_FLAGS                                 = OBJECT_END + 0x0003, // Size: 1, Type: INT, Flags: PUBLIC
-    GAMEOBJECT_PARENTROTATION                        = OBJECT_END + 0x0004, // Size: 4, Type: FLOAT, Flags: PUBLIC
-    GAMEOBJECT_FACTION                               = OBJECT_END + 0x0008, // Size: 1, Type: INT, Flags: PUBLIC
-    GAMEOBJECT_LEVEL                                 = OBJECT_END + 0x0009, // Size: 1, Type: INT, Flags: PUBLIC
-    GAMEOBJECT_BYTES_1                               = OBJECT_END + 0x000A, // Size: 1, Type: BYTES, Flags: PUBLIC
-    GAMEOBJECT_STATE_SPELL_VISUAL_ID                 = OBJECT_END + 0x000B, // Size: 1, Type: BYTES, Flags: PUBLIC
-    GAMEOBJECT_END                                   = OBJECT_END + 0x000C
+    OBJECT_FIELD_CREATED_BY                          = 8, // SIZE:2
+    GAMEOBJECT_DISPLAYID                             = 10, // SIZE:1
+    GAMEOBJECT_FLAGS                                 = 11, // SIZE:1
+    GAMEOBJECT_PARENTROTATION                        = 12, // SIZE:4
+    GAMEOBJECT_FACTION                               = 16, // SIZE:1
+    GAMEOBJECT_LEVEL                                 = 17, // SIZE:1
+    GAMEOBJECT_BYTES_1                               = 18, // SIZE:1
+    GAMEOBJECT_STATE_SPELL_VISUAL_ID                 = 19, // SIZE:1
+    GAMEOBJECT_END                                   = 20
 };
 
 enum EDynamicObjectFields
@@ -415,11 +613,11 @@ enum EAreaTriggerFields
 
 enum ESceneObjectFields
 {
-    SCENE_SCRIPT_PACKAGE_ID                          = OBJECT_END + 0x0000,
-    SCENE_RND_SEED_VAL                               = OBJECT_END + 0x0001,
-    SCENE_CREATE_BY                                  = OBJECT_END + 0x0002,
-    SCENE_TYPE                                       = OBJECT_END + 0x0004,
-    SCENE_END                                        = OBJECT_END + 0x0005
+    SCENE_SCRIPT_PACKAGE_ID                          = 8, // SIZE:1
+    SCENE_RND_SEED_VAL                               = 9, // SIZE:1
+    SCENE_CREATE_BY                                  = 10, // SIZE:2
+    SCENE_TYPE                                       = 12, // SIZE:1
+    SCENE_END                                        = 13
 };
 
 #endif // _UPDATEFIELDS_H

@@ -537,13 +537,15 @@ void Vehicle::CalculatePassengerPosition(float& x, float& y, float& z, float& o)
     z = GetBase()->GetPositionZ() + inz;
 }
 
-void Vehicle::CalculatePassengerOffset(float& x, float& y, float& z, float& o)
+void Vehicle::CalculatePassengerOffset(float& x, float& y, float& z, float* o /*= NULL*/) const
 {
-    o -= GetBase()->GetOrientation();
+    if (o)
+        *o = Position::NormalizeOrientation(*o - GetBase()->GetOrientation());
+
     z -= GetBase()->GetPositionZ();
     y -= GetBase()->GetPositionY();    // y = searchedY * std::cos(o) + searchedX * std::sin(o)
     x -= GetBase()->GetPositionX();    // x = searchedX * std::cos(o) + searchedY * std::sin(o + pi)
     float inx = x, iny = y;
-    y = (iny - inx * tan(GetBase()->GetOrientation())) / (cos(GetBase()->GetOrientation()) + std::sin(GetBase()->GetOrientation()) * tan(GetBase()->GetOrientation()));
-    x = (inx + iny * tan(GetBase()->GetOrientation())) / (cos(GetBase()->GetOrientation()) + std::sin(GetBase()->GetOrientation()) * tan(GetBase()->GetOrientation()));
+    y = (iny - inx * std::tan(GetBase()->GetOrientation())) / (std::cos(GetBase()->GetOrientation()) + std::sin(GetBase()->GetOrientation()) * std::tan(GetBase()->GetOrientation()));
+    x = (inx + iny * std::tan(GetBase()->GetOrientation())) / (std::cos(GetBase()->GetOrientation()) + std::sin(GetBase()->GetOrientation()) * std::tan(GetBase()->GetOrientation()));
 }

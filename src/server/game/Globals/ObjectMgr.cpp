@@ -243,7 +243,8 @@ ObjectMgr::ObjectMgr():
     _hiGoGuid(1),
     _hiDoGuid(1),
     _hiCorpseGuid(1),
-    _hiMoTransGuid(1)
+    _hiMoTransGuid(1),
+	_lootID(1)
 {
     for (uint8 i = 0; i < MAX_CLASSES; ++i)
         for (uint8 j = 0; j < MAX_RACES; ++j)
@@ -6541,6 +6542,11 @@ uint32 ObjectMgr::GeneratePetNumber()
 uint64 ObjectMgr::GenerateVoidStorageItemId()
 {
     return ++_voidItemId;
+}
+
+uint32 ObjectMgr::GenerateLootNumber()
+{
+    return ++_lootID;
 }
 
 void ObjectMgr::LoadCorpses()

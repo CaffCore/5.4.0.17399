@@ -36,6 +36,7 @@
 #include "Util.h"
 #include "World.h"
 #include "WorldPacket.h"
+#include "ChatHandler.h"
 
 namespace Trinity
 {
@@ -1764,19 +1765,8 @@ void Battleground::SendWarningToAll(int32 entry, ...)
     std::string msg(str);
 
     WorldPacket data(SMSG_MESSAGECHAT, 200);
+    sChatBuilder->BuildChatPacket(&data, 0, 0, 0, 0, msg, "", "", 0, LANG_UNIVERSAL, CHAT_MSG_RAID_BOSS_EMOTE, 0);
 
-    data << (uint8)CHAT_MSG_RAID_BOSS_EMOTE;
-    data << (uint32)LANG_UNIVERSAL;
-    data << (uint64)0;
-    data << (uint32)0;                                     // 2.1.0
-    data << (uint32)1;
-    data << (uint8)0;
-    data << (uint64)0;
-    data << (uint32)(msg.length() + 1);
-    data << msg.c_str();
-    data << (uint8)0;
-    data << (float)0.0f;                                   // added in 4.2.0, unk
-    data << (uint8)0;                                      // added in 4.2.0, unk
     for (BattlegroundPlayerMap::const_iterator itr = m_Players.begin(); itr != m_Players.end(); ++itr)
         if (Player* player = ObjectAccessor::FindPlayer(MAKE_NEW_GUID(itr->first, 0, HIGHGUID_PLAYER)))
             if (player->GetSession())

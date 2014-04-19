@@ -79,24 +79,369 @@ void WorldSession::HandleClientCastFlags(WorldPacket& recvPacket, uint8 castFlag
     }*/
 }
 
-void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
+void WorldSession::HandleUseItemOpcode(WorldPacket& p_Data)
 {
-    // TODO: add targets.read() check
+    /// @todo add targets.read() check
     Player* pUser = _player;
 
     // ignore for remote control state
     if (pUser->m_mover != pUser)
         return;
 
-    uint8 bagIndex, slot, castFlags;
-    uint8 castCount;                                       // next cast if exists (single or not)
-    uint64 itemGUID;
-    uint32 glyphIndex;                                      // something to do with glyphs?
-    uint32 spellId;                                         // casted spell id
+    uint8 bagIndex  = 0;
+    uint8 slot      = 0;
+    
+    p_Data >> bagIndex >> slot;
 
-    recvPacket >> bagIndex >> slot >> castCount >> spellId >> itemGUID >> glyphIndex >> castFlags;
+    bool l_Movement_HasSplineElevation  = false;
+    bool l_Movement_HasMovementFlags2   = false;
+    bool l_Movement_HasMovementFlags    = false;
+    bool l_Movement_HasFallDirection    = false;
+    bool l_Movement_HasTransportData    = false;
+    bool l_Movement_HasOrientation      = false;
+    bool l_Movement_HasTransTime2       = false;
+    bool l_Movement_HasTransTime3       = false;
+    bool l_Movement_HasTimeStamp        = false;
+    bool l_Movement_HasAliveTime        = false;
+    bool l_Movement_HasFallData         = false;
+    bool l_Movement_HasPitch            = false;
+    bool l_HaveMovementInfo             = false;
+    bool l_HaveTargetMask               = false;
+    bool l_HaveCastCount                = false;
+    bool l_HaveSrcTarget                = false;
+    bool l_HaveFloatF8                  = false;
+    bool l_HaveFloatFC                  = false;
+    bool l_HaveSpellID                  = false;
+    bool l_HaveDword18                  = false;
+    bool l_HaveGlyph                    = false;
+    bool l_HaveDest                     = false;
+    bool l_HaveSrc                      = false;
 
-    if (glyphIndex >= MAX_GLYPH_SLOT_INDEX)
+    ObjectGuid l_Movement_TransGuid = 0;
+    ObjectGuid l_DestTransportGuid  = 0;
+    ObjectGuid l_SrcTransportGuid   = 0;
+    ObjectGuid l_ItemTargetGuid     = 0;
+    ObjectGuid l_Movement_Guid      = 0;
+    ObjectGuid l_TargetGuid         = 0;
+    ObjectGuid l_ItemGuid           = 0;
+
+    Position l_DestPosition;
+    Position l_SrcPosition;
+
+    std::string l_SrcTarget;
+
+    uint32 l_Movement_UnkCounter    = 0;
+    uint32 l_TargetMask             = 0;
+    uint32 l_Dword18                = 0;
+    uint32 l_SpellID                = 0;
+
+    uint8 l_SrcTargetSize   = 0;
+    uint8 l_GlyphIndex      = 0;
+    uint8 l_CastCount       = 0;
+    uint8 l_BitSize2        = 0;
+
+    l_ItemGuid[4]       = p_Data.ReadBit();
+    p_Data.ReadBit();
+    l_HaveSrcTarget     = !p_Data.ReadBit();
+    l_HaveTargetMask    = !p_Data.ReadBit();
+    l_ItemGuid[5]       = p_Data.ReadBit();
+    l_HaveSpellID       = !p_Data.ReadBit();
+    l_BitSize2          = p_Data.ReadBits(2);
+    l_HaveSrc           = p_Data.ReadBit();
+    l_HaveMovementInfo  = p_Data.ReadBit();
+    p_Data.ReadBit();
+    l_HaveFloatF8       = !p_Data.ReadBit();
+    l_HaveCastCount     = !p_Data.ReadBit();
+    l_ItemGuid[0]       = p_Data.ReadBit();
+    l_HaveGlyph         = !p_Data.ReadBit();
+    l_ItemGuid[6]       = p_Data.ReadBit();
+    l_ItemGuid[2]       = p_Data.ReadBit();
+    l_ItemGuid[1]       = p_Data.ReadBit();
+    l_HaveDword18       = !p_Data.ReadBit();
+    l_HaveDest          = p_Data.ReadBit();
+    l_HaveFloatFC       = !p_Data.ReadBit();
+    l_ItemGuid[3]       = p_Data.ReadBit();
+
+    for (size_t l_I = 0 ; l_I < l_BitSize2 ; ++l_I)
+        p_Data.ReadBits(2);
+
+    l_ItemGuid[7]       = p_Data.ReadBit();
+
+    if (l_HaveSrc)
+    {
+        l_SrcTransportGuid[6] = p_Data.ReadBit();
+        l_SrcTransportGuid[1] = p_Data.ReadBit();
+        l_SrcTransportGuid[5] = p_Data.ReadBit();
+        l_SrcTransportGuid[0] = p_Data.ReadBit();
+        l_SrcTransportGuid[3] = p_Data.ReadBit();
+        l_SrcTransportGuid[2] = p_Data.ReadBit();
+        l_SrcTransportGuid[7] = p_Data.ReadBit();
+        l_SrcTransportGuid[4] = p_Data.ReadBit();
+    }
+
+    if (l_HaveMovementInfo)
+    {
+        p_Data.ReadBit();
+        l_Movement_HasMovementFlags     = !p_Data.ReadBit();
+        l_Movement_HasMovementFlags2    = !p_Data.ReadBit();
+        l_Movement_HasSplineElevation   = !p_Data.ReadBit();
+        l_Movement_Guid[5]              = p_Data.ReadBit();
+        l_Movement_HasAliveTime         = !p_Data.ReadBit();
+        l_Movement_HasFallData          = p_Data.ReadBit();
+
+        if (l_Movement_HasFallData)
+            l_Movement_HasFallDirection = p_Data.ReadBit();
+
+        l_Movement_Guid[7]              = p_Data.ReadBit();
+        l_Movement_Guid[0]              = p_Data.ReadBit();
+        l_Movement_UnkCounter           = p_Data.ReadBits(22);
+        l_Movement_Guid[2]              = p_Data.ReadBit();
+        l_Movement_HasTimeStamp         = !p_Data.ReadBit();
+        p_Data.ReadBit();
+        l_Movement_Guid[4]              = p_Data.ReadBit();
+        l_Movement_Guid[1]              = p_Data.ReadBit();
+        l_Movement_Guid[6]              = p_Data.ReadBit();
+        l_Movement_HasOrientation       = !p_Data.ReadBit();
+        l_Movement_Guid[3]              = p_Data.ReadBit();
+        p_Data.ReadBit();
+        l_Movement_HasTransportData     = p_Data.ReadBit();
+
+        if (l_Movement_HasTransportData)
+        {
+            l_Movement_TransGuid[3]     = p_Data.ReadBit();
+            l_Movement_TransGuid[1]     = p_Data.ReadBit();
+            l_Movement_TransGuid[6]     = p_Data.ReadBit();
+            l_Movement_TransGuid[7]     = p_Data.ReadBit();
+            l_Movement_TransGuid[4]     = p_Data.ReadBit();
+            l_Movement_TransGuid[2]     = p_Data.ReadBit();
+            l_Movement_HasTransTime2    = p_Data.ReadBit();
+            l_Movement_TransGuid[5]     = p_Data.ReadBit();
+            l_Movement_TransGuid[0]     = p_Data.ReadBit();
+            l_Movement_HasTransTime3    = p_Data.ReadBit();
+        }
+
+        if (l_Movement_HasMovementFlags)
+            p_Data.ReadBits(30);
+
+        l_Movement_HasPitch             = !p_Data.ReadBit();
+
+        if (l_Movement_HasMovementFlags2)
+            p_Data.ReadBits(13);
+    }
+
+    l_TargetGuid[0] = p_Data.ReadBit();
+    l_TargetGuid[4] = p_Data.ReadBit();
+    l_TargetGuid[7] = p_Data.ReadBit();
+    l_TargetGuid[1] = p_Data.ReadBit();
+    l_TargetGuid[2] = p_Data.ReadBit();
+    l_TargetGuid[3] = p_Data.ReadBit();
+    l_TargetGuid[6] = p_Data.ReadBit();
+    l_TargetGuid[5] = p_Data.ReadBit();
+
+    if (l_HaveTargetMask)
+        l_TargetMask = p_Data.ReadBits(20);
+
+    if (l_HaveDest)
+    {
+        l_DestTransportGuid[2] = p_Data.ReadBit();
+        l_DestTransportGuid[0] = p_Data.ReadBit();
+        l_DestTransportGuid[1] = p_Data.ReadBit();
+        l_DestTransportGuid[5] = p_Data.ReadBit();
+        l_DestTransportGuid[7] = p_Data.ReadBit();
+        l_DestTransportGuid[4] = p_Data.ReadBit();
+        l_DestTransportGuid[3] = p_Data.ReadBit();
+        l_DestTransportGuid[6] = p_Data.ReadBit();
+    }
+
+    l_ItemTargetGuid[0] = p_Data.ReadBit();
+    l_ItemTargetGuid[4] = p_Data.ReadBit();
+    l_ItemTargetGuid[3] = p_Data.ReadBit();
+    l_ItemTargetGuid[5] = p_Data.ReadBit();
+    l_ItemTargetGuid[1] = p_Data.ReadBit();
+    l_ItemTargetGuid[7] = p_Data.ReadBit();
+    l_ItemTargetGuid[6] = p_Data.ReadBit();
+    l_ItemTargetGuid[2] = p_Data.ReadBit();
+
+    if (l_HaveGlyph)
+        l_GlyphIndex = p_Data.ReadBits(5);
+
+    if (l_HaveSrcTarget)
+        l_SrcTargetSize = p_Data.ReadBits(7);
+
+    p_Data.ReadByteSeq(l_ItemGuid[7]);
+
+    for (size_t l_I = 0 ; l_I < l_BitSize2 ; l_I++)
+    {
+        uint32 unk1 = 0;
+        uint32 unk2 = 0;
+
+        p_Data >> unk1 >> unk2;
+    }
+
+    p_Data.ReadByteSeq(l_ItemGuid[3]);
+    p_Data.ReadByteSeq(l_ItemGuid[6]);
+    p_Data.ReadByteSeq(l_ItemGuid[5]);
+    p_Data.ReadByteSeq(l_ItemGuid[4]);
+    p_Data.ReadByteSeq(l_ItemGuid[1]);
+    p_Data.ReadByteSeq(l_ItemGuid[0]);
+    p_Data.ReadByteSeq(l_ItemGuid[2]);
+
+    p_Data.ReadByteSeq(l_ItemTargetGuid[0]);
+    p_Data.ReadByteSeq(l_ItemTargetGuid[4]);
+    p_Data.ReadByteSeq(l_ItemTargetGuid[1]);
+    p_Data.ReadByteSeq(l_ItemTargetGuid[7]);
+    p_Data.ReadByteSeq(l_ItemTargetGuid[3]);
+    p_Data.ReadByteSeq(l_ItemTargetGuid[6]);
+    p_Data.ReadByteSeq(l_ItemTargetGuid[5]);
+    p_Data.ReadByteSeq(l_ItemTargetGuid[2]);
+
+    if (l_HaveDest)
+    {
+        p_Data.ReadByteSeq(l_DestTransportGuid[7]);
+        p_Data.ReadByteSeq(l_DestTransportGuid[5]);
+        p_Data.ReadByteSeq(l_DestTransportGuid[6]);
+        p_Data >> l_DestPosition.m_positionX;
+        p_Data.ReadByteSeq(l_DestTransportGuid[3]);
+        p_Data.ReadByteSeq(l_DestTransportGuid[1]);
+        p_Data >> l_DestPosition.m_positionZ;
+        p_Data >> l_DestPosition.m_positionY;
+        p_Data.ReadByteSeq(l_DestTransportGuid[0]);
+        p_Data.ReadByteSeq(l_DestTransportGuid[2]);
+        p_Data.ReadByteSeq(l_DestTransportGuid[4]);
+    }
+
+    if (l_HaveMovementInfo)
+    {
+        for (uint32 l_I = 0 ; l_I < l_Movement_UnkCounter ; ++l_I)
+            p_Data.read_skip<uint32>();
+
+        if (l_Movement_HasFallData)
+        {
+            if (l_Movement_HasFallDirection)
+            {
+                p_Data.read_skip<float>();
+                p_Data.read_skip<float>();
+                p_Data.read_skip<float>();
+            }
+
+            p_Data.read_skip<float>();
+            p_Data.read_skip<uint32>();
+        }
+
+        p_Data.ReadByteSeq(l_Movement_Guid[3]);
+
+        if (l_Movement_HasTransportData)
+        {
+            p_Data.read_skip<uint32>();
+            if (l_Movement_HasTransTime3)
+                p_Data.read_skip<uint32>();
+            if (l_Movement_HasTransTime2)
+                p_Data.read_skip<uint32>();
+
+            p_Data.read_skip<uint8>();
+            p_Data.ReadByteSeq(l_Movement_TransGuid[7]);
+            p_Data.ReadByteSeq(l_Movement_TransGuid[2]);
+            p_Data.ReadByteSeq(l_Movement_TransGuid[3]);
+            p_Data.ReadByteSeq(l_Movement_TransGuid[0]);
+            p_Data.ReadByteSeq(l_Movement_TransGuid[5]);
+            p_Data.read_skip<float>();
+            p_Data.ReadByteSeq(l_Movement_TransGuid[6]);
+            p_Data.read_skip<float>();
+            p_Data.ReadByteSeq(l_Movement_TransGuid[4]);
+            p_Data.read_skip<float>();
+            p_Data.read_skip<float>();
+            p_Data.ReadByteSeq(l_Movement_TransGuid[1]);
+        }
+
+        if (l_Movement_HasOrientation)
+            p_Data.read_skip<float>();
+
+        p_Data.ReadByteSeq(l_Movement_Guid[6]);
+        p_Data.ReadByteSeq(l_Movement_Guid[1]);
+        p_Data.ReadByteSeq(l_Movement_Guid[7]);
+
+        p_Data.read_skip<float>();
+
+        if (l_Movement_HasTimeStamp)
+            p_Data.read_skip<uint32>();
+
+        p_Data.ReadByteSeq(l_Movement_Guid[2]);
+        p_Data.ReadByteSeq(l_Movement_Guid[5]);
+
+        p_Data.read_skip<float>();
+
+        if (l_Movement_HasAliveTime)
+            p_Data.read_skip<uint32>();
+
+        if (l_Movement_HasSplineElevation)
+            p_Data.read_skip<float>();
+
+        p_Data.read_skip<float>();
+
+        p_Data.ReadByteSeq(l_Movement_Guid[4]);
+
+        if (l_Movement_HasPitch)
+            p_Data.read_skip<float>();
+
+        p_Data.ReadByteSeq(l_Movement_Guid[0]);
+    }
+
+    if (l_HaveCastCount)
+        p_Data >> l_CastCount;
+
+    if (l_HaveSrc)
+    {
+        p_Data.ReadByteSeq(l_SrcTransportGuid[6]);
+        p_Data.ReadByteSeq(l_SrcTransportGuid[1]);
+        p_Data >> l_SrcPosition.m_positionZ;
+        p_Data.ReadByteSeq(l_SrcTransportGuid[0]);
+        p_Data >> l_SrcPosition.m_positionX;
+        p_Data.ReadByteSeq(l_SrcTransportGuid[5]);
+        p_Data >> l_SrcPosition.m_positionY;
+        p_Data.ReadByteSeq(l_SrcTransportGuid[7]);
+        p_Data.ReadByteSeq(l_SrcTransportGuid[2]);
+        p_Data.ReadByteSeq(l_SrcTransportGuid[4]);
+        p_Data.ReadByteSeq(l_SrcTransportGuid[3]);
+    }
+
+    if (l_HaveFloatF8)
+    {
+        float floatF8 = 0;
+        p_Data >> floatF8;
+        sLog->outInfo(LOG_FILTER_NETWORKIO, "floatF8 = %f", floatF8);
+    }
+
+    p_Data.ReadByteSeq(l_TargetGuid[1]);
+    p_Data.ReadByteSeq(l_TargetGuid[3]);
+    p_Data.ReadByteSeq(l_TargetGuid[7]);
+    p_Data.ReadByteSeq(l_TargetGuid[0]);
+    p_Data.ReadByteSeq(l_TargetGuid[4]);
+    p_Data.ReadByteSeq(l_TargetGuid[6]);
+    p_Data.ReadByteSeq(l_TargetGuid[2]);
+    p_Data.ReadByteSeq(l_TargetGuid[5]);
+
+    if (l_HaveSpellID)
+        p_Data >> l_SpellID;
+
+    if(l_HaveFloatFC)
+    {
+        float floatFC = 0;
+        p_Data >> floatFC;
+        sLog->outInfo(LOG_FILTER_NETWORKIO, "floatFC = %f", floatFC);
+    }
+
+    if (l_HaveSrcTarget)
+        l_SrcTarget = p_Data.ReadString(l_SrcTargetSize);
+
+    if (l_HaveDword18)
+    {
+        p_Data >> l_Dword18;
+        sLog->outInfo(LOG_FILTER_NETWORKIO, "l_Dword18 %u", l_Dword18);
+    }
+
+
+
+    if (l_GlyphIndex >= MAX_GLYPH_SLOT_INDEX)
     {
         pUser->SendEquipError(EQUIP_ERR_ITEM_NOT_FOUND, NULL, NULL);
         return;
@@ -109,13 +454,13 @@ void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
         return;
     }
 
-    if (pItem->GetGUID() != itemGUID)
+    if (pItem->GetGUID() != l_ItemGuid)
     {
         pUser->SendEquipError(EQUIP_ERR_ITEM_NOT_FOUND, NULL, NULL);
         return;
     }
 
-    sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: CMSG_USE_ITEM packet, bagIndex: %u, slot: %u, castCount: %u, spellId: %u, Item: %u, glyphIndex: %u, data length = %i", bagIndex, slot, castCount, spellId, pItem->GetEntry(), glyphIndex, (uint32)recvPacket.size());
+    sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: CMSG_USE_ITEM packet, bagIndex: %u, slot: %u, castCount: %u, spellId: %u, Item: %u, glyphIndex: %u, data length = %i", bagIndex, slot, l_CastCount, l_SpellID, pItem->GetEntry(), l_GlyphIndex, (uint32)p_Data.size());
 
     ItemTemplate const* proto = pItem->GetTemplate();
     if (!proto)
@@ -177,15 +522,69 @@ void WorldSession::HandleUseItemOpcode(WorldPacket& recvPacket)
         }
     }
 
-    SpellCastTargets targets;
-    targets.Read(recvPacket, pUser);
-    HandleClientCastFlags(recvPacket, castFlags, targets);
+    SpellCastTargets l_Targets;
+    l_Targets.SetTargetMask(l_TargetMask);
+    l_Targets.m_objectTargetGUID = l_TargetGuid;
+
+    if (l_ItemTargetGuid)
+    {
+        l_TargetMask |= TARGET_FLAG_ITEM | TARGET_FLAG_TRADE_ITEM;
+        l_Targets.m_itemTargetGUID = l_ItemTargetGuid;
+    }
+
+    if (l_HaveSrc)
+    {
+        l_TargetMask |= TARGET_FLAG_SOURCE_LOCATION;
+        l_Targets.m_src._transportGUID	= l_SrcTransportGuid;
+
+        if (l_SrcTransportGuid)
+            l_Targets.m_src._transportOffset	= l_SrcPosition;
+        else
+            l_Targets.m_src._position			= WorldLocation(GetPlayer()->GetMapId(), l_SrcPosition.m_positionX, l_SrcPosition.m_positionY, l_SrcPosition.m_positionZ, 0);
+    }
+    else
+    {
+        l_Targets.m_src._transportGUID = GetPlayer()->GetTransGUID();
+
+        if (l_Targets.m_src._transportGUID)
+            l_Targets.m_src._transportOffset.Relocate(GetPlayer()->GetTransOffsetX(), GetPlayer()->GetTransOffsetY(), GetPlayer()->GetTransOffsetZ(), GetPlayer()->GetTransOffsetO());
+        else
+            l_Targets.m_src._position.Relocate(GetPlayer());
+    }
+
+    if (l_HaveDest)
+    {
+        l_TargetMask |= TARGET_FLAG_DEST_LOCATION;
+        l_Targets.m_dst._transportGUID	= l_DestTransportGuid;
+
+        if (l_DestTransportGuid)
+            l_Targets.m_dst._transportOffset	= l_DestPosition;
+        else
+            l_Targets.m_dst._position			= WorldLocation(GetPlayer()->GetMapId(), l_DestPosition.m_positionX, l_DestPosition.m_positionY, l_DestPosition.m_positionZ, 0);
+    }
+    else
+    {
+        l_Targets.m_dst._transportGUID = GetPlayer()->GetTransGUID();
+
+        if (l_Targets.m_dst._transportGUID)
+            l_Targets.m_dst._transportOffset.Relocate(GetPlayer()->GetTransOffsetX(), GetPlayer()->GetTransOffsetY(), GetPlayer()->GetTransOffsetZ(), GetPlayer()->GetTransOffsetO());
+        else
+            l_Targets.m_dst._position.Relocate(GetPlayer());
+    }
+
+    if (l_HaveSrcTarget)
+    {
+        l_TargetMask |= TARGET_FLAG_STRING;
+        l_Targets.m_strTarget = l_SrcTarget;
+    }
+
+    l_Targets.Update(_player);
 
     // Note: If script stop casting it must send appropriate data to client to prevent stuck item in gray state.
-    if (!sScriptMgr->OnItemUse(pUser, pItem, targets))
+    if (!sScriptMgr->OnItemUse(pUser, pItem, l_Targets))
     {
         // no script or script not process request by self
-        pUser->CastItemUseSpell(pItem, targets, castCount, glyphIndex);
+        pUser->CastItemUseSpell(pItem, l_Targets, l_CastCount, l_GlyphIndex);
     }
 }
 
@@ -287,9 +686,25 @@ void WorldSession::HandleOpenItemOpcode(WorldPacket& recvPacket)
 
 void WorldSession::HandleGameObjectUseOpcode(WorldPacket& recvData)
 {
-    uint64 guid;
+    ObjectGuid guid;
 
-    recvData >> guid;
+    guid[5] = recvData.ReadBit();
+    guid[2] = recvData.ReadBit();
+    guid[7] = recvData.ReadBit();
+    guid[3] = recvData.ReadBit();
+    guid[0] = recvData.ReadBit();
+    guid[6] = recvData.ReadBit();
+    guid[4] = recvData.ReadBit();
+    guid[1] = recvData.ReadBit();
+
+    recvData.ReadByteSeq(guid[6]);
+    recvData.ReadByteSeq(guid[0]);
+    recvData.ReadByteSeq(guid[5]);
+    recvData.ReadByteSeq(guid[3]);
+    recvData.ReadByteSeq(guid[4]);
+    recvData.ReadByteSeq(guid[1]);
+    recvData.ReadByteSeq(guid[7]);
+    recvData.ReadByteSeq(guid[2]);
 
     sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: Recvd CMSG_GAMEOBJ_USE Message [guid=%u]", GUID_LOPART(guid));
 
@@ -303,8 +718,25 @@ void WorldSession::HandleGameObjectUseOpcode(WorldPacket& recvData)
 
 void WorldSession::HandleGameobjectReportUse(WorldPacket& recvPacket)
 {
-    uint64 guid;
-    recvPacket >> guid;
+    ObjectGuid guid;
+
+    guid[5] = recvPacket.ReadBit();
+    guid[3] = recvPacket.ReadBit();
+    guid[1] = recvPacket.ReadBit();
+    guid[4] = recvPacket.ReadBit();
+    guid[6] = recvPacket.ReadBit();
+    guid[7] = recvPacket.ReadBit();
+    guid[2] = recvPacket.ReadBit();
+    guid[0] = recvPacket.ReadBit();
+
+    recvPacket.ReadByteSeq(guid[6]);
+    recvPacket.ReadByteSeq(guid[1]);
+    recvPacket.ReadByteSeq(guid[5]);
+    recvPacket.ReadByteSeq(guid[3]);
+    recvPacket.ReadByteSeq(guid[4]);
+    recvPacket.ReadByteSeq(guid[0]);
+    recvPacket.ReadByteSeq(guid[2]);
+    recvPacket.ReadByteSeq(guid[7]);
 
     sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: Recvd CMSG_GAMEOBJ_REPORT_USE Message [in game guid: %u]", GUID_LOPART(guid));
 
@@ -327,15 +759,394 @@ void WorldSession::HandleGameobjectReportUse(WorldPacket& recvPacket)
 
 void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
 {
-    uint32 spellId, glyphIndex;
-    uint8  castCount, castFlags;
+    bool l_Movement_HasSplineElevation  = false;
+    bool l_Movement_HasMovementFlags2   = false;
+    bool l_Movement_HasMovementFlags    = false;
+    bool l_Movement_HasFallDirection    = false;
+    bool l_Movement_HasTransportData    = false;
+    bool l_Movement_HasOrientation      = false;
+    bool l_Movement_HasTransTime2       = false;
+    bool l_Movement_HasTransTime3       = false;
+    bool l_Movement_HasTimeStamp        = false;
+    bool l_Movement_HasAliveTime        = false;
+    bool l_Movement_HasFallData         = false;
+    bool l_Movement_HasPitch            = false;
+    bool l_HaveMovementInfo             = false;
+    bool l_HaveTargetMask               = false;
+    bool l_HaveCastCount                = false;
+    bool l_HaveSrcTarget                = false;
+    bool l_HaveFloatF8                  = false;
+    bool l_HaveFloatFC                  = false;
+    bool l_HaveSpellID                  = false;
+    bool l_HaveDword18                  = false;
+    bool l_HaveGlyph                    = false;
+    bool l_HaveDest                     = false;
+    bool l_HaveSrc                      = false;
 
-    recvPacket >> castCount;
-    recvPacket >> spellId;
-    recvPacket >> glyphIndex;
-    recvPacket >> castFlags;
+    ObjectGuid l_Movement_TransGuid = 0;
+    ObjectGuid l_DestTransportGuid  = 0;
+    ObjectGuid l_SrcTransportGuid   = 0;
+    ObjectGuid l_ItemTargetGuid     = 0;
+    ObjectGuid l_Movement_Guid      = 0;
+    ObjectGuid l_TargetGuid         = 0;
 
-    sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: got cast spell packet, castCount: %u, spellId: %u, castFlags: %u, data length = %u", castCount, spellId, castFlags, (uint32)recvPacket.size());
+    Position l_DestPosition;
+    Position l_SrcPosition;
+
+    std::string l_SrcTarget;
+
+    uint32 l_Movement_UnkCounter    = 0;
+    uint32 l_TargetMask             = 0;
+    uint32 l_Dword18                = 0;
+    uint32 l_SpellID                = 0;
+
+    uint8 l_SrcTargetSize   = 0;
+    uint8 l_GlyphIndex      = 0;
+    uint8 l_CastCount       = 0;
+    uint8 l_BitSize2        = 0;
+
+    l_HaveTargetMask    = !recvPacket.ReadBit();
+    l_HaveCastCount     = !recvPacket.ReadBit();
+    l_HaveDword18       = !recvPacket.ReadBit();
+    l_HaveSpellID       = !recvPacket.ReadBit();
+    l_BitSize2          = recvPacket.ReadBits(2);
+    recvPacket.ReadBit();
+    l_HaveFloatFC       = !recvPacket.ReadBit();
+    recvPacket.ReadBit();
+    l_HaveDest          = recvPacket.ReadBit();
+    l_HaveFloatF8       = !recvPacket.ReadBit();
+    l_HaveSrcTarget     = !recvPacket.ReadBit();
+    l_HaveSrc           = recvPacket.ReadBit();
+    l_HaveMovementInfo  = recvPacket.ReadBit();
+    l_HaveGlyph         = !recvPacket.ReadBit();
+
+    for (size_t l_I = 0 ; l_I < l_BitSize2 ; ++l_I)
+        recvPacket.ReadBits(2);
+
+    if (l_HaveMovementInfo)
+    {
+        l_Movement_HasAliveTime         = !recvPacket.ReadBit();
+        l_Movement_Guid[3]              = recvPacket.ReadBit();
+        l_Movement_HasSplineElevation   = !recvPacket.ReadBit();
+        l_Movement_UnkCounter           = recvPacket.ReadBits(22);
+        l_Movement_HasFallData          = recvPacket.ReadBit();
+        l_Movement_HasMovementFlags     = !recvPacket.ReadBit();
+        l_Movement_Guid[6]              = recvPacket.ReadBit();
+        l_Movement_Guid[0]              = recvPacket.ReadBit();
+
+        if (l_Movement_HasMovementFlags)
+            recvPacket.ReadBits(30);
+
+        l_Movement_HasPitch             = !recvPacket.ReadBit();
+        recvPacket.ReadBit();
+        l_Movement_Guid[2]              = recvPacket.ReadBit();
+        l_Movement_Guid[7]              = recvPacket.ReadBit();
+        l_Movement_Guid[1]              = recvPacket.ReadBit();
+        l_Movement_Guid[5]              = recvPacket.ReadBit();
+        l_Movement_HasOrientation       = !recvPacket.ReadBit();
+
+        if (l_Movement_HasFallData)
+            l_Movement_HasFallDirection = recvPacket.ReadBit();
+
+        recvPacket.ReadBit();
+        l_Movement_Guid[4]              = recvPacket.ReadBit();
+        l_Movement_HasTransportData     = recvPacket.ReadBit();
+
+        if (l_Movement_HasTransportData)
+        {
+            l_Movement_HasTransTime2    = recvPacket.ReadBit();
+            l_Movement_TransGuid[6]     = recvPacket.ReadBit();
+            l_Movement_TransGuid[3]     = recvPacket.ReadBit();
+            l_Movement_TransGuid[1]     = recvPacket.ReadBit();
+            l_Movement_TransGuid[0]     = recvPacket.ReadBit();
+            l_Movement_TransGuid[4]     = recvPacket.ReadBit();
+            l_Movement_HasTransTime3    = recvPacket.ReadBit();
+            l_Movement_TransGuid[7]     = recvPacket.ReadBit();
+            l_Movement_TransGuid[2]     = recvPacket.ReadBit();
+            l_Movement_TransGuid[5]     = recvPacket.ReadBit();
+        }
+
+        recvPacket.ReadBit();
+        l_Movement_HasMovementFlags2    = !recvPacket.ReadBit();
+
+        if (l_Movement_HasMovementFlags2)
+            recvPacket.ReadBits(13);
+
+        l_Movement_HasTimeStamp         = !recvPacket.ReadBit();
+    }
+
+    if (l_HaveTargetMask)
+        l_TargetMask = recvPacket.ReadBits(20);
+
+    l_ItemTargetGuid[2] = recvPacket.ReadBit();
+    l_ItemTargetGuid[1] = recvPacket.ReadBit();
+    l_ItemTargetGuid[3] = recvPacket.ReadBit();
+    l_ItemTargetGuid[6] = recvPacket.ReadBit();
+    l_ItemTargetGuid[5] = recvPacket.ReadBit();
+    l_ItemTargetGuid[4] = recvPacket.ReadBit();
+    l_ItemTargetGuid[7] = recvPacket.ReadBit();
+    l_ItemTargetGuid[0] = recvPacket.ReadBit();
+
+    if (l_HaveDest)
+    {
+        l_DestTransportGuid[3] = recvPacket.ReadBit();
+        l_DestTransportGuid[6] = recvPacket.ReadBit();
+        l_DestTransportGuid[1] = recvPacket.ReadBit();
+        l_DestTransportGuid[0] = recvPacket.ReadBit();
+        l_DestTransportGuid[4] = recvPacket.ReadBit();
+        l_DestTransportGuid[5] = recvPacket.ReadBit();
+        l_DestTransportGuid[7] = recvPacket.ReadBit();
+        l_DestTransportGuid[2] = recvPacket.ReadBit();
+    }
+    if (l_HaveSrc)
+    {
+        l_SrcTransportGuid[6] = recvPacket.ReadBit();
+        l_SrcTransportGuid[3] = recvPacket.ReadBit();
+        l_SrcTransportGuid[5] = recvPacket.ReadBit();
+        l_SrcTransportGuid[2] = recvPacket.ReadBit();
+        l_SrcTransportGuid[0] = recvPacket.ReadBit();
+        l_SrcTransportGuid[4] = recvPacket.ReadBit();
+        l_SrcTransportGuid[1] = recvPacket.ReadBit();
+        l_SrcTransportGuid[7] = recvPacket.ReadBit();
+    }
+
+    l_TargetGuid[5] = recvPacket.ReadBit();
+    l_TargetGuid[0] = recvPacket.ReadBit();
+    l_TargetGuid[2] = recvPacket.ReadBit();
+    l_TargetGuid[3] = recvPacket.ReadBit();
+    l_TargetGuid[1] = recvPacket.ReadBit();
+    l_TargetGuid[4] = recvPacket.ReadBit();
+    l_TargetGuid[6] = recvPacket.ReadBit();
+    l_TargetGuid[7] = recvPacket.ReadBit();
+
+    if (l_HaveSrcTarget)
+        l_SrcTargetSize = recvPacket.ReadBits(7);
+
+    if (l_HaveGlyph)
+        l_GlyphIndex = recvPacket.ReadBits(5);
+
+
+    for (size_t l_I = 0 ; l_I < l_BitSize2 ; l_I++)
+    {
+        uint32 unk1 = 0;
+        uint32 unk2 = 0;
+
+        recvPacket >> unk1 >> unk2;
+    }
+
+    if (l_HaveMovementInfo)
+    {
+        if (l_Movement_HasTransportData)
+        {
+            recvPacket.ReadByteSeq(l_Movement_TransGuid[5]);
+
+            if (l_Movement_HasTransTime3)
+                recvPacket.read_skip<uint32>();
+
+            recvPacket.read_skip<float>();
+            recvPacket.read_skip<float>();
+
+            if (l_Movement_HasTransTime2)
+                recvPacket.read_skip<uint32>();
+
+            recvPacket.ReadByteSeq(l_Movement_TransGuid[7]);
+            recvPacket.ReadByteSeq(l_Movement_TransGuid[2]);
+            recvPacket.ReadByteSeq(l_Movement_TransGuid[0]);
+            recvPacket.read_skip<uint32>();
+            recvPacket.ReadByteSeq(l_Movement_TransGuid[1]);
+            recvPacket.ReadByteSeq(l_Movement_TransGuid[6]);
+            recvPacket.ReadByteSeq(l_Movement_TransGuid[3]);
+            recvPacket.read_skip<float>();
+            recvPacket.ReadByteSeq(l_Movement_TransGuid[4]);
+            recvPacket.read_skip<uint8>();
+            recvPacket.read_skip<float>();
+        }
+
+        if (l_Movement_HasOrientation)
+            recvPacket.read_skip<float>();
+
+        recvPacket.ReadByteSeq(l_Movement_Guid[6]);
+        recvPacket.ReadByteSeq(l_Movement_Guid[4]);
+
+        if (l_Movement_HasFallData)
+        {
+            recvPacket.read_skip<uint32>();
+
+            if (l_Movement_HasFallDirection)
+            {
+                recvPacket.read_skip<float>();
+                recvPacket.read_skip<float>();
+                recvPacket.read_skip<float>();
+            }
+
+            recvPacket.read_skip<float>();
+        }
+
+        recvPacket.ReadByteSeq(l_Movement_Guid[3]);
+        recvPacket.ReadByteSeq(l_Movement_Guid[2]);
+
+        if (l_Movement_HasPitch)
+            recvPacket.read_skip<float>();
+        if (l_Movement_HasAliveTime)
+            recvPacket.read_skip<uint32>();
+
+        recvPacket.read_skip<float>();
+
+        if (l_Movement_HasTimeStamp)
+            recvPacket.read_skip<uint32>();
+
+        recvPacket.ReadByteSeq(l_Movement_Guid[5]);
+        recvPacket.ReadByteSeq(l_Movement_Guid[0]);
+
+        recvPacket.read_skip<float>();
+        recvPacket.read_skip<float>();
+
+        for (uint32 l_I = 0 ; l_I < l_Movement_UnkCounter ; ++l_I)
+            recvPacket.read_skip<uint32>();
+
+        if (l_Movement_HasSplineElevation)
+            recvPacket.read_skip<float>();
+
+        recvPacket.ReadByteSeq(l_Movement_Guid[7]);
+        recvPacket.ReadByteSeq(l_Movement_Guid[1]);
+    }
+
+    if (l_HaveSpellID)
+        recvPacket >> l_SpellID;
+
+    if (l_HaveSrc)
+    {
+        recvPacket.ReadByteSeq(l_SrcTransportGuid[7]);
+        recvPacket >> l_SrcPosition.m_positionX;
+        recvPacket.ReadByteSeq(l_SrcTransportGuid[6]);
+        recvPacket.ReadByteSeq(l_SrcTransportGuid[0]);
+        recvPacket >> l_SrcPosition.m_positionY;
+        recvPacket.ReadByteSeq(l_SrcTransportGuid[1]);
+        recvPacket.ReadByteSeq(l_SrcTransportGuid[4]);
+        recvPacket >> l_SrcPosition.m_positionZ;
+        recvPacket.ReadByteSeq(l_SrcTransportGuid[3]);
+        recvPacket.ReadByteSeq(l_SrcTransportGuid[2]);
+        recvPacket.ReadByteSeq(l_SrcTransportGuid[5]);
+    }
+
+    if (l_HaveDest)
+    {
+        recvPacket.ReadByteSeq(l_DestTransportGuid[5]);
+        recvPacket.ReadByteSeq(l_DestTransportGuid[4]);
+        recvPacket.ReadByteSeq(l_DestTransportGuid[3]);
+        recvPacket.ReadByteSeq(l_DestTransportGuid[1]);
+        recvPacket >> l_DestPosition.m_positionZ;
+        recvPacket >> l_DestPosition.m_positionY;
+        recvPacket.ReadByteSeq(l_DestTransportGuid[2]);
+        recvPacket.ReadByteSeq(l_DestTransportGuid[6]);
+        recvPacket.ReadByteSeq(l_DestTransportGuid[7]);
+        recvPacket >> l_DestPosition.m_positionX;
+        recvPacket.ReadByteSeq(l_DestTransportGuid[0]);
+    }
+
+    recvPacket.ReadByteSeq(l_TargetGuid[7]);
+    recvPacket.ReadByteSeq(l_TargetGuid[2]);
+    recvPacket.ReadByteSeq(l_TargetGuid[6]);
+    recvPacket.ReadByteSeq(l_TargetGuid[0]);
+    recvPacket.ReadByteSeq(l_TargetGuid[4]);
+    recvPacket.ReadByteSeq(l_TargetGuid[5]);
+    recvPacket.ReadByteSeq(l_TargetGuid[1]);
+    recvPacket.ReadByteSeq(l_TargetGuid[3]);
+
+    recvPacket.ReadByteSeq(l_ItemTargetGuid[1]);
+    recvPacket.ReadByteSeq(l_ItemTargetGuid[0]);
+    recvPacket.ReadByteSeq(l_ItemTargetGuid[2]);
+    recvPacket.ReadByteSeq(l_ItemTargetGuid[3]);
+    recvPacket.ReadByteSeq(l_ItemTargetGuid[5]);
+    recvPacket.ReadByteSeq(l_ItemTargetGuid[6]);
+    recvPacket.ReadByteSeq(l_ItemTargetGuid[7]);
+    recvPacket.ReadByteSeq(l_ItemTargetGuid[4]);
+
+    if (l_HaveCastCount)
+        recvPacket >> l_CastCount;
+
+    if (l_HaveFloatF8)
+    {
+        float floatF8 = 0;
+        recvPacket >> floatF8;
+        sLog->outInfo(LOG_FILTER_NETWORKIO, "floatF8 = %f", floatF8);
+    }
+
+    if (l_HaveSrcTarget)
+        l_SrcTarget = recvPacket.ReadString(l_SrcTargetSize);
+
+    if (l_HaveDword18)
+    {
+        recvPacket >> l_Dword18;
+        sLog->outInfo(LOG_FILTER_NETWORKIO, "l_Dword18 %u", l_Dword18);
+    }
+  
+    if(l_HaveFloatFC)
+    {
+        float floatFC = 0;
+        recvPacket >> floatFC;
+        sLog->outInfo(LOG_FILTER_NETWORKIO, "floatFC = %f", floatFC);
+    }
+
+    SpellCastTargets l_Targets;
+    l_Targets.SetTargetMask(l_TargetMask);
+    l_Targets.m_objectTargetGUID = l_TargetGuid;
+
+    if (l_ItemTargetGuid)
+    {
+        l_TargetMask |= TARGET_FLAG_ITEM | TARGET_FLAG_TRADE_ITEM;
+        l_Targets.m_itemTargetGUID = l_ItemTargetGuid;
+    }
+
+    if (l_HaveSrc)
+    {
+        l_TargetMask |= TARGET_FLAG_SOURCE_LOCATION;
+        l_Targets.m_src._transportGUID	= l_SrcTransportGuid;
+
+        if (l_SrcTransportGuid)
+            l_Targets.m_src._transportOffset	= l_SrcPosition;
+        else
+            l_Targets.m_src._position			= WorldLocation(GetPlayer()->GetMapId(), l_SrcPosition.m_positionX, l_SrcPosition.m_positionY, l_SrcPosition.m_positionZ, 0);
+    }
+    else
+    {
+        l_Targets.m_src._transportGUID = GetPlayer()->GetTransGUID();
+
+        if (l_Targets.m_src._transportGUID)
+            l_Targets.m_src._transportOffset.Relocate(GetPlayer()->GetTransOffsetX(), GetPlayer()->GetTransOffsetY(), GetPlayer()->GetTransOffsetZ(), GetPlayer()->GetTransOffsetO());
+        else
+            l_Targets.m_src._position.Relocate(GetPlayer());
+    }
+
+    if (l_HaveDest)
+    {
+        l_TargetMask |= TARGET_FLAG_DEST_LOCATION;
+        l_Targets.m_dst._transportGUID	= l_DestTransportGuid;
+
+        if (l_DestTransportGuid)
+            l_Targets.m_dst._transportOffset	= l_DestPosition;
+        else
+            l_Targets.m_dst._position			= WorldLocation(GetPlayer()->GetMapId(), l_DestPosition.m_positionX, l_DestPosition.m_positionY, l_DestPosition.m_positionZ, 0);
+    }
+    else
+    {
+        l_Targets.m_dst._transportGUID = GetPlayer()->GetTransGUID();
+
+        if (l_Targets.m_dst._transportGUID)
+            l_Targets.m_dst._transportOffset.Relocate(GetPlayer()->GetTransOffsetX(), GetPlayer()->GetTransOffsetY(), GetPlayer()->GetTransOffsetZ(), GetPlayer()->GetTransOffsetO());
+        else
+            l_Targets.m_dst._position.Relocate(GetPlayer());
+    }
+
+    if (l_HaveSrcTarget)
+    {
+        l_TargetMask |= TARGET_FLAG_STRING;
+        l_Targets.m_strTarget = l_SrcTarget;
+    }
+
+    l_Targets.Update(_player);
+
+    sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: got cast spell packet, castCount: %u, spellId: %u, castFlags: %u, data length = %u", l_CastCount, l_SpellID, l_TargetMask, (uint32)recvPacket.size());
 
     // ignore for remote control state (for player case)
     Unit* mover = _player->m_mover;
@@ -345,12 +1156,10 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
         return;
     }
 
-	spellId = sSpellMgr->GetOverrideSpell(GetPlayer(), spellId);
-
-    SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(spellId);
+    SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(l_SpellID);
     if (!spellInfo)
     {
-        sLog->outError(LOG_FILTER_NETWORKIO, "WORLD: unknown spell id %u", spellId);
+        sLog->outError(LOG_FILTER_NETWORKIO, "WORLD: unknown spell id %u", l_SpellID);
         recvPacket.rfinish(); // prevent spam at ignore packet
         return;
     }
@@ -358,7 +1167,7 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
     if (mover->GetTypeId() == TYPEID_PLAYER)
     {
         // not have spell in spellbook or spell passive and not casted by client
-        if (!mover->ToPlayer()->HasActiveSpell(spellId) || spellInfo->IsPassive())
+        if (!mover->ToPlayer()->HasActiveSpell(l_SpellID) || spellInfo->IsPassive())
         {
             //cheater? kick? ban?
             recvPacket.rfinish(); // prevent spam at ignore packet
@@ -368,7 +1177,7 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
     else
     {
         // not have spell in spellbook or spell passive and not casted by client
-        if ((mover->GetTypeId() == TYPEID_UNIT && !mover->ToCreature()->HasSpell(spellId)) || spellInfo->IsPassive())
+        if ((mover->GetTypeId() == TYPEID_UNIT && !mover->ToCreature()->HasSpell(l_SpellID)) || spellInfo->IsPassive())
         {
             //cheater? kick? ban?
             recvPacket.rfinish(); // prevent spam at ignore packet
@@ -390,7 +1199,7 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
                 if (SpellInfo const* newInfo = sSpellMgr->GetSpellInfo((*itr)->GetAmount()))
                 {
                     spellInfo = newInfo;
-                    spellId = newInfo->Id;
+                    l_SpellID = newInfo->Id;
                 }
                 break;
             }
@@ -413,65 +1222,10 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
         return;
     }
 
-    // client provided targets
-    SpellCastTargets targets;
-
-    if(castFlags & 0x2)
-    {
-        targets.Read(recvPacket, mover);
-
-        float elevation, speed;
-        recvPacket >> elevation >> speed;
-        targets.SetElevation(elevation);
-        targets.SetSpeed(speed);
-
-        uint8 hasMovementInfo;
-        recvPacket >> hasMovementInfo;
-        if(hasMovementInfo)
-            HandleMovementOpcodes(recvPacket);
-    }
-    else
-    {
-        if(castFlags & 0x10)
-        {
-            uint8 hasMovementInfo;
-            recvPacket >> hasMovementInfo;
-            if(hasMovementInfo)
-                HandleMovementOpcodes(recvPacket);
-        }
-
-        targets.Read(recvPacket, mover);
-
-        if(castFlags & 0x8)
-        {
-            uint32 count, entry, usedCount;
-            uint8 type;
-            recvPacket >> count;
-            for (uint32 i = 0; i < count; ++i)
-            {
-                recvPacket >> type;
-                switch (type)
-                {
-                    case 2: // Keystones
-                        recvPacket >> entry;        // Item id
-                        recvPacket >> usedCount;    // Item count
-                        break;
-                    case 1: // Fragments
-                        recvPacket >> entry;        // Currency id
-                        recvPacket >> usedCount;    // Currency count
-                        break;
-                }
-            }
-        }
-    }
-
-    //targets.Read(recvPacket, mover);
-    //HandleClientCastFlags(recvPacket, castFlags, targets);
-
     // auto-selection buff level base at target level (in spellInfo)
-    if (targets.GetUnitTarget())
+    if (l_Targets.GetUnitTarget())
     {
-        SpellInfo const* actualSpellInfo = spellInfo->GetAuraRankForLevel(targets.GetUnitTarget()->getLevel());
+        SpellInfo const* actualSpellInfo = spellInfo->GetAuraRankForLevel(l_Targets.GetUnitTarget()->getLevel());
 
         // if rank not found then function return NULL but in explicit cast case original spell can be casted and later failed with appropriate error message
         if (actualSpellInfo)
@@ -479,9 +1233,9 @@ void WorldSession::HandleCastSpellOpcode(WorldPacket& recvPacket)
     }
 
     Spell* spell = new Spell(mover, spellInfo, TRIGGERED_NONE, 0, false);
-    spell->m_cast_count = castCount;                       // set count of casts
-    spell->m_glyphIndex = glyphIndex;
-    spell->prepare(&targets);
+    spell->m_cast_count = l_CastCount;                       // set count of casts
+    spell->m_glyphIndex = l_GlyphIndex;
+    spell->prepare(&l_Targets);
 }
 
 void WorldSession::HandleCancelCastOpcode(WorldPacket& recvPacket)
@@ -597,9 +1351,26 @@ void WorldSession::HandleTotemDestroyed(WorldPacket& recvPacket)
         return;
 
     uint8 slotId;
-    uint64 guid;
+    ObjectGuid guid;
     recvPacket >> slotId;
-    recvPacket >> guid;
+    
+    guid[5] = recvPacket.ReadBit();
+    guid[3] = recvPacket.ReadBit();
+    guid[0] = recvPacket.ReadBit();
+    guid[7] = recvPacket.ReadBit();
+    guid[4] = recvPacket.ReadBit();
+    guid[6] = recvPacket.ReadBit();
+    guid[2] = recvPacket.ReadBit();
+    guid[1] = recvPacket.ReadBit();
+
+    recvPacket.ReadByteSeq(guid[7]);
+    recvPacket.ReadByteSeq(guid[2]);
+    recvPacket.ReadByteSeq(guid[0]);
+    recvPacket.ReadByteSeq(guid[6]);
+    recvPacket.ReadByteSeq(guid[5]);
+    recvPacket.ReadByteSeq(guid[3]);
+    recvPacket.ReadByteSeq(guid[4]);
+    recvPacket.ReadByteSeq(guid[1]);
 
     ++slotId;
     if (slotId >= MAX_TOTEM_SLOT)
@@ -632,8 +1403,26 @@ void WorldSession::HandleSelfResOpcode(WorldPacket& /*recvData*/)
 
 void WorldSession::HandleSpellClick(WorldPacket& recvData)
 {
-    uint64 guid;
-    recvData >> guid;
+    ObjectGuid guid;
+    
+    guid[1] = recvData.ReadBit();
+    guid[7] = recvData.ReadBit();
+    guid[4] = recvData.ReadBit();
+    guid[5] = recvData.ReadBit();
+    guid[3] = recvData.ReadBit();
+    guid[6] = recvData.ReadBit();
+    guid[2] = recvData.ReadBit();
+    recvData.ReadBit();
+    guid[0] = recvData.ReadBit();
+
+    recvData.ReadByteSeq(guid[0]);
+    recvData.ReadByteSeq(guid[2]);
+    recvData.ReadByteSeq(guid[3]);
+    recvData.ReadByteSeq(guid[1]);
+    recvData.ReadByteSeq(guid[4]);
+    recvData.ReadByteSeq(guid[6]);
+    recvData.ReadByteSeq(guid[5]);
+    recvData.ReadByteSeq(guid[7]);
 
     // this will get something not in world. crash
     Creature* unit = ObjectAccessor::GetCreatureOrPetOrVehicle(*_player, guid);

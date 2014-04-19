@@ -306,16 +306,35 @@ class LFGMgr
         // Queue
         void JoinLfg(Player* player, uint8 roles, LfgDungeonSet& dungeons, std::string const& comment);
         void LeaveLfg(uint64 guid);
+		// LfgQueue
+        /// Get last lfg state (NONE, DUNGEON or FINISHED_DUNGEON)
+        LfgState GetOldState(uint64 guid);
+        /// Check if given group guid is lfg
+        bool IsLfgGroup(uint64 guid);
+        /// Gets the player count of given group
+        uint8 GetPlayerCount(uint64 guid);
+        /// Add a new Proposal
+        uint32 AddProposal(LfgProposal& proposal);
+        /// Returns queue id
+        uint8 GetQueueId(uint64 guid);
+        /// Checks if all players are queued
+        bool AllQueued(LfgGuidList const& check);
+        /// Gets queue join time
+        time_t GetQueueJoinTime(uint64 guid);
+        /// Checks if given roles match, modifies given roles map with new roles
+        static bool CheckGroupRoles(LfgRolesMap &groles, bool removeLeaderFlag = true);
+        /// Checks if given players are ignoring each other
+        static bool HasIgnore(uint64 guid1, uint64 guid2);
+        /// Sends queue status to player
+        static void SendLfgQueueStatus(uint64 guid, LfgQueueStatusData const& data);
 
         // Role Check
         void UpdateRoleCheck(uint64 gguid, uint64 guid = 0, uint8 roles = PLAYER_ROLE_NONE);
 
         // Group Matching
-        static bool CheckGroupRoles(LfgRolesMap &groles, bool removeLeaderFlag = true);
+        
         void GetCompatibleDungeons(LfgDungeonSet& dungeons, LfgGuidSet const& players, LfgLockPartyMap& lockMap);
-
-        // Proposals
-        uint32 AddProposal(LfgProposal& proposal);
+		        
         void UpdateProposal(uint32 proposalId, uint64 guid, bool accept);
 
         // Teleportation
@@ -347,22 +366,20 @@ class LFGMgr
         uint32 GetDungeon(uint64 guid, bool asId = true);
         uint32 GetDungeonMapId(uint64 guid);
         LfgState GetState(uint64 guid);
-        LfgState GetOldState(uint64 guid);
+        
         uint8 GetKicksLeft(uint64 gguid);
         uint64 GetLeader(uint64 guid);
-        bool IsLfgGroup(uint64 guid);
+		uint32 GetLFGDungeonEntry(uint32 id);
+        
         uint8 GetRoles(uint64 guid);
         std::string const& GetComment(uint64 gguid);
         LfgGuidSet const& GetPlayers(uint64 guid);
-        uint8 GetPlayerCount(uint64 guid);
+        
 
         bool IsTeleported(uint64 guid);
 
-        bool AllQueued(LfgGuidList const& check);
-        void Clean();
-
-        static bool HasIgnore(uint64 guid1, uint64 guid2);
-        static void SendLfgQueueStatus(uint64 guid, LfgQueueStatusData const& data);
+        
+        void Clean();       
 
         bool isOptionEnabled(uint32 option);
         uint32 GetOptions();
@@ -403,8 +420,8 @@ class LFGMgr
         void SendLfgJoinResult(uint64 guid, LfgJoinResultData const& data);
         void SendLfgRoleChosen(uint64 guid, uint64 pguid, uint8 roles);
         void SendLfgRoleCheckUpdate(uint64 guid, LfgRoleCheck const& roleCheck);
-        void SendLfgUpdateParty(uint64 guid, LfgUpdateData const& data);
-        void SendLfgUpdatePlayer(uint64 guid, LfgUpdateData const& data);
+        void SendLfgUpdatePlayer(uint64 guid, LfgUpdateData const& data, bool party);
+        
         void SendLfgUpdateProposal(uint64 guid, LfgProposal const& proposal);
 
         // General variables

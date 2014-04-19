@@ -30,8 +30,24 @@
 
 void WorldSession::HandleAttackSwingOpcode(WorldPacket& recvData)
 {
-    uint64 guid;
-    recvData >> guid;
+    ObjectGuid guid;
+    guid[7] = recvData.ReadBit();
+    guid[6] = recvData.ReadBit();
+    guid[4] = recvData.ReadBit();
+    guid[3] = recvData.ReadBit();
+    guid[5] = recvData.ReadBit();
+    guid[0] = recvData.ReadBit();
+    guid[2] = recvData.ReadBit();
+    guid[1] = recvData.ReadBit();
+
+    recvData.ReadByteSeq(guid[6]);
+    recvData.ReadByteSeq(guid[3]);
+    recvData.ReadByteSeq(guid[2]);
+    recvData.ReadByteSeq(guid[5]);
+    recvData.ReadByteSeq(guid[4]);
+    recvData.ReadByteSeq(guid[7]);
+    recvData.ReadByteSeq(guid[1]);
+    recvData.ReadByteSeq(guid[0]);
 
     sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: Recvd CMSG_ATTACKSWING Message guidlow:%u guidhigh:%u", GUID_LOPART(guid), GUID_HIPART(guid));
 
@@ -76,8 +92,10 @@ void WorldSession::HandleAttackStopOpcode(WorldPacket & /*recvData*/)
 void WorldSession::HandleSetSheathedOpcode(WorldPacket& recvData)
 {
     uint32 sheathed;
-    uint8 unk;
-    recvData >> sheathed >> unk;
+    bool unk;
+
+    recvData >> sheathed;
+    unk = recvData.ReadBit();
 
     //sLog->outDebug(LOG_FILTER_PACKETIO, "WORLD: Recvd CMSG_SETSHEATHED Message guidlow:%u value1:%u", GetPlayer()->GetGUIDLow(), sheathed);
 
@@ -93,8 +111,44 @@ void WorldSession::HandleSetSheathedOpcode(WorldPacket& recvData)
 void WorldSession::SendAttackStop(Unit const* enemy)
 {
     WorldPacket data(SMSG_ATTACKSTOP, (8+8+4));             // we guess size
-    data.append(GetPlayer()->GetPackGUID());
-    data.append(enemy ? enemy->GetPackGUID() : 0);          // must be packed guid
-    data << uint32(0);                                      // unk, can be 1 also
+    ObjectGuid l_PlayerGuid = GetPlayer()->GetGUID();
+    ObjectGuid l_EnemyGuid  = enemy ? enemy->GetGUID() : 0;
+
+    data.WriteBit(l_EnemyGuid[0]);
+    data.WriteBit(l_PlayerGuid[4]);
+    data.WriteBit(l_EnemyGuid[1]);
+    data.WriteBit(l_PlayerGuid[7]);
+    data.WriteBit(l_EnemyGuid[6]);
+    data.WriteBit(l_EnemyGuid[3]);
+    data.WriteBit(0);                                      // unk, can be 1 also
+    data.WriteBit(l_EnemyGuid[5]);
+    data.WriteBit(l_PlayerGuid[1]);
+    data.WriteBit(l_PlayerGuid[0]);
+    data.WriteBit(l_EnemyGuid[7]);
+    data.WriteBit(l_PlayerGuid[6]);
+    data.WriteBit(l_EnemyGuid[4]);
+    data.WriteBit(l_EnemyGuid[2]);
+    data.WriteBit(l_PlayerGuid[3]);
+    data.WriteBit(l_PlayerGuid[2]);
+    data.WriteBit(l_PlayerGuid[5]);
+    data.FlushBits();
+
+    data.WriteByteSeq(l_PlayerGuid[2]);
+    data.WriteByteSeq(l_PlayerGuid[7]);
+    data.WriteByteSeq(l_EnemyGuid[0]);
+    data.WriteByteSeq(l_PlayerGuid[5]);
+    data.WriteByteSeq(l_EnemyGuid[5]);
+    data.WriteByteSeq(l_PlayerGuid[3]);
+    data.WriteByteSeq(l_EnemyGuid[7]);
+    data.WriteByteSeq(l_EnemyGuid[1]);
+    data.WriteByteSeq(l_EnemyGuid[3]);
+    data.WriteByteSeq(l_PlayerGuid[0]);
+    data.WriteByteSeq(l_EnemyGuid[4]);
+    data.WriteByteSeq(l_EnemyGuid[6]);
+    data.WriteByteSeq(l_PlayerGuid[1]);
+    data.WriteByteSeq(l_PlayerGuid[6]);
+    data.WriteByteSeq(l_EnemyGuid[2]);
+    data.WriteByteSeq(l_PlayerGuid[4]);
+
     SendPacket(&data);
 }

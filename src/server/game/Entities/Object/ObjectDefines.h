@@ -32,12 +32,16 @@ enum HighGuid
     HIGHGUID_PET            = 0xF14,                       // blizz F140
     HIGHGUID_VEHICLE        = 0xF15,                       // blizz F550
     HIGHGUID_DYNAMICOBJECT  = 0xF10,                       // blizz F100
-    HIGHGUID_CORPSE         = 0xF50,                      // blizz F100
+    HIGHGUID_CORPSE         = 0xF50,                       // blizz F100
     HIGHGUID_BATTLEGROUND   = 0x1F1,                       // new 4.x
     HIGHGUID_MO_TRANSPORT   = 0x1FC,                       // blizz 1FC0 (for GAMEOBJECT_TYPE_MO_TRANSPORT)
     HIGHGUID_GROUP          = 0x1F5,
-    HIGHGUID_GUILD          = 0x10F                       // new 4.x
+    HIGHGUID_GUILD          = 0x10F,                       // new 4.x
+    HIGHGUID_AREATRIGGER    = 0xF51,                        // unk
+    HIGHGUID_LOOT           = 0xF19,                       // new 5.3.x
 };
+
+#define IS_GROUP(Guid)               (GUID_HIPART(Guid) == HIGHGUID_GROUP)
 
 // used for creating values for respawn for example
 inline uint64 MAKE_PAIR64(uint32 l, uint32 h);

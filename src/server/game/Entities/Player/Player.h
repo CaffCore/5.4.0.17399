@@ -1295,6 +1295,17 @@ class Player : public Unit, public GridObject<Player>
 
         uint32 GetBarberShopCost(uint8 newhairstyle, uint8 newhaircolor, uint8 newfacialhair, BarberShopStyleEntry const* newSkin=NULL);
 
+		uint8 GetSkin() const { return GetByteValue(PLAYER_BYTES, 0); }
+        uint8 GetFace() const { return GetByteValue(PLAYER_BYTES, 1); }
+        uint8 GetHairStyle() const { return GetByteValue(PLAYER_BYTES, 2); }
+        uint8 GetHairColor() const { return GetByteValue(PLAYER_BYTES, 3); }
+        uint8 GetFacialHair() const { return GetByteValue(PLAYER_BYTES_2, 0); }
+        void SetSkin(uint8 value) { SetByteValue(PLAYER_BYTES, 0, value); }
+        void SetFace(uint8 value) { SetByteValue(PLAYER_BYTES, 1, value); }
+        void SetHairStyle(uint8 value) { SetByteValue(PLAYER_BYTES, 2, value); }
+        void SetHairColor(uint8 value) { SetByteValue(PLAYER_BYTES, 3, value); }
+        void SetFacialHair(uint8 value) { SetByteValue(PLAYER_BYTES_2, 0, value); }
+
         PlayerSocial *GetSocial() { return m_social; }
 
         PlayerTaxi m_taxi;
@@ -1447,7 +1458,7 @@ class Player : public Unit, public GridObject<Player>
         bool StoreNewItemInBestSlots(uint32 item_id, uint32 item_count);
         void AutoStoreLoot(uint8 bag, uint8 slot, uint32 loot_id, LootStore const& store, bool broadcast = false);
         void AutoStoreLoot(uint32 loot_id, LootStore const& store, bool broadcast = false) { AutoStoreLoot(NULL_BAG, NULL_SLOT, loot_id, store, broadcast); }
-        void StoreLootItem(uint8 lootSlot, Loot* loot, ObjectGuid guid);
+        void StoreLootItem(uint8 lootSlot, Loot* loot, uint64 lootedObject);
 
         InventoryResult CanTakeMoreSimilarItems(uint32 entry, uint32 count, Item* pItem, uint32* no_space_count = NULL) const;
         InventoryResult CanStoreItem(uint8 bag, uint8 slot, ItemPosCountVec& dest, uint32 entry, uint32 count, Item* pItem = NULL, bool swap = false, uint32* no_space_count = NULL) const;
@@ -2196,7 +2207,7 @@ class Player : public Unit, public GridObject<Player>
         void SendAttackSwingCantAttack();
         void SendAttackSwingCancelAttack();
         void SendAttackSwingDeadTarget();
-        void SendAttackSwingNotInRange();
+        void SendAttackSwingNotInRange(AttackSwingError error);
         void SendAttackSwingBadFacingAttack();
         void SendAutoRepeatCancel(Unit* target);
         void SendExplorationExperience(uint32 Area, uint32 Experience);
@@ -2385,8 +2396,8 @@ class Player : public Unit, public GridObject<Player>
 
         void SendLoot(uint64 guid, LootType loot_type);
         void SendLootRelease(uint64 guid);
-        void SendNotifyLootItemRemoved(uint8 lootSlot, ObjectGuid guid);
-        void SendNotifyLootMoneyRemoved();
+        void SendNotifyLootItemRemoved(uint8 lootSlot, uint64 p_LootedObject, uint64 p_LootGuid);
+        void SendNotifyLootMoneyRemoved(Loot * p_Loot);
 
         /*********************************************************/
         /***               BATTLEGROUND SYSTEM                 ***/
@@ -2791,10 +2802,11 @@ public:
         void AddWhisperWhiteList(uint64 guid) { WhisperList.push_back(guid); }
         bool IsInWhisperWhiteList(uint64 guid);
 
+		void ReadMovementInfo(WorldPacket& data, MovementInfo* mi, Movement::ExtraMovementStatusElement* extras = NULL);
+
         /*! These methods send different packets to the client in apply and unapply case.
             These methods are only sent to the current unit.
-        */
-        void SendMovementSetCanFly(bool apply);
+        */        
         void SendMovementSetCanTransitionBetweenSwimAndFly(bool apply);
         void SendMovementSetHover(bool apply);
         void SendMovementSetWaterWalking(bool apply);
@@ -2852,6 +2864,8 @@ public:
 		Creature* GetTranscendenceSpirit(Unit* unit){ if(unit->getClass() == CLASS_MONK) return transcendence_spirit; else return NULL; }
 		void SetTranscendenceSpirit(Creature* creature){transcendence_spirit = creature;}
 
+		void CheckSendNameData(uint64 p_Guid); 
+
 		void SetKnockBackTime(uint32 timer) { m_knockBackTimer = timer; }
         uint32 GetKnockBackTime() const { return m_knockBackTimer; }
 
@@ -2865,6 +2879,9 @@ public:
         BattlePetMgr const& GetBattlePetMgr() const { return m_battlePetMgr; }
 
     protected:
+
+		std::list<uint64> m_NameDataSended;
+
         // Gamemaster whisper whitelist
         WhisperListContainer WhisperList;
         uint32 m_regenTimerCount;
@@ -3213,6 +3230,8 @@ public:
         SpellCooldowns m_spellCooldowns;
 
         uint32 m_ChampioningFaction;
+
+		std::queue<uint32> m_timeSyncQueue;
 
         uint32 m_timeSyncCounter;
         uint32 m_timeSyncTimer;

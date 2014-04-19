@@ -81,6 +81,8 @@
 #include "WorldSession.h"
 #include "SpellLearn.h"
 #include "DBCStores.h"
+#include "MovementStructures.h"
+#include "ChatHandler.h"
 #include "MasteryMgr.h"
 
 #define ZONE_UPDATE_INTERVAL (1*IN_MILLISECONDS)
@@ -1680,7 +1682,7 @@ void Player::Update(uint32 p_time)
                     setAttackTimer(BASE_ATTACK, 100);
                     if (m_swingErrorMsg != 1)               // send single time (client auto repeat)
                     {
-                        SendAttackSwingNotInRange();
+                        SendAttackSwingNotInRange(ATTACKSWING_ERROR_NOTINRANGE);
                         m_swingErrorMsg = 1;
                     }
                 }
@@ -1690,7 +1692,7 @@ void Player::Update(uint32 p_time)
                     setAttackTimer(BASE_ATTACK, 100);
                     if (m_swingErrorMsg != 2)               // send single time (client auto repeat)
                     {
-                        SendAttackSwingBadFacingAttack();
+                        SendAttackSwingNotInRange(ATTACKSWING_ERROR_BADFACING);
                         m_swingErrorMsg = 2;
                     }
                 }
@@ -3222,19 +3224,41 @@ void Player::RemoveFromGroup(Group* group, uint64 guid, RemoveMethod method /* =
 void Player::SendLogXPGain(uint32 GivenXP, Unit* victim, uint32 BonusXP, bool recruitAFriend, float /*group_rate*/)
 {
     WorldPacket data(SMSG_LOG_XPGAIN, 21); // guess size?
-    data << uint64(victim ? victim->GetGUID() : 0);         // guid
-    data << uint32(GivenXP + BonusXP);                      // given experience
-    data << uint8(victim ? 0 : 1);                          // 00-kill_xp type, 01-non_kill_xp type
+    ObjectGuid l_Guid = victim ? victim->GetGUID() : 0;
+
+    data.WriteBit(victim ? 1 : 0);
+    data.WriteBit(l_Guid[3]);
+    data.WriteBit(l_Guid[0]);
+    data.WriteBit(victim ? 0 : 1);
+    data.WriteBit(l_Guid[1]);
+    data.WriteBit(l_Guid[4]);
+    data.WriteBit(l_Guid[5]);
+    data.WriteBit(l_Guid[7]);
+    data.WriteBit(l_Guid[2]);
+    data.WriteBit(victim ? 0 : 1);
+    data.WriteBit(l_Guid[6]);
+
+    data.WriteByteSeq(l_Guid[5]);
+    data.WriteByteSeq(l_Guid[3]);
 
     if (victim)
-    {
-        data << uint32(GivenXP);                            // experience without bonus
+        data << uint32(GivenXP);
 
-        // should use group_rate here but can't figure out how
+    data << uint32(GivenXP + BonusXP);                      // experience without bonus
+
+    data.WriteByteSeq(l_Guid[4]);
+    data.WriteByteSeq(l_Guid[1]);
+    data.WriteByteSeq(l_Guid[6]);
+
+    if (victim)
         data << float(1);                                   // 1 - none 0 - 100% group bonus output
-    }
+
+    data.WriteByteSeq(l_Guid[2]);
+    data.WriteByteSeq(l_Guid[0]);
+    data.WriteByteSeq(l_Guid[7]);
 
     data << uint8(recruitAFriend ? 1 : 0);                  // does the GivenXP include a RaF bonus?
+
     GetSession()->SendPacket(&data);
 }
 
@@ -3316,14 +3340,15 @@ void Player::GiveLevel(uint8 level)
 
     // send levelup info to client
     WorldPacket data(SMSG_LEVELUP_INFO, (4+4+MAX_POWERS_PER_CLASS*4+MAX_STATS*4));
-    data << uint32(level);
+
     data << uint32(int32(basehp) - int32(GetCreateHealth()));
-    // for (int i = 0; i < MAX_STORED_POWERS; ++i)          // Powers loop (0-10)
-    data << uint32(int32(basemana)   - int32(GetCreateMana()));
+
+    for (int i = 0; i < MAX_POWERS_PER_CLASS; ++i)
+        data << uint32(0);
+
     data << uint32(0);
-    data << uint32(0);
-    data << uint32(0);
-    data << uint32(0);
+    data << uint32(level);
+
     // end for
     for (uint8 i = STAT_STRENGTH; i < MAX_STATS; ++i)       // Stats loop (0-4)
         data << uint32(int32(info.stats[i]) - GetCreateStat(Stats(i)));
@@ -3656,45 +3681,7 @@ void Player::SendInitialSpells()
 
         data << uint32(itr->first);
     }
-
-    //WorldPacket data(SMSG_PET_SPELLS/*, (1+2+4*m_spells.size()+m_spellCooldowns.size()*(2+2+2+4+4))*/);
-
-
-    /*uint16 spellCooldowns = m_spellCooldowns.size();
-    data << uint16(spellCooldowns);
-    for (SpellCooldowns::const_iterator itr = m_spellCooldowns.begin(); itr != m_spellCooldowns.end(); ++itr)
-    {
-        SpellInfo const* sEntry = sSpellMgr->GetSpellInfo(itr->first);
-        if (!sEntry)
-            continue;
-
-        data << uint32(itr->first);
-
-        data << uint32(itr->second.itemid);                 // cast item id
-        data << uint16(sEntry->Category);                   // spell category
-
-        // send infinity cooldown in special format
-        if (itr->second.end >= infTime)
-        {
-            data << uint32(1);                              // cooldown
-            data << uint32(0x80000000);                     // category cooldown
-            continue;
-        }
-
-        time_t cooldown = itr->second.end > curTime ? (itr->second.end-curTime)*IN_MILLISECONDS : 0;
-
-        if (sEntry->Category)                                // may be wrong, but anyway better than nothing...
-        {
-            data << uint32(0);                              // cooldown
-            data << uint32(cooldown);                       // category cooldown
-        }
-        else
-        {
-            data << uint32(cooldown);                       // cooldown
-            data << uint32(0);                              // category cooldown
-        }
-    }*/
-
+   
     GetSession()->SendPacket(&data);
 
     sLog->outDebug(LOG_FILTER_NETWORKIO, "CHARACTER: Sent Initial Spells");
@@ -3902,18 +3889,18 @@ bool Player::addSpell(uint32 spellId, bool active, bool learning, bool dependent
                 {
                     // update spell ranks in spellbook and action bar
                     WorldPacket data(SMSG_SUPERCEDED_SPELL, 4 + 4);
-                    data.WriteBits(1, 24); //second count
-                    data.WriteBits(1, 24); //first count
+                    data.WriteBits(1, 22);
+                    data.WriteBits(1, 22);
                     data.FlushBits();
-
                     data << uint32(spellId);
                     data << uint32(next_active_spell_id);
                     GetSession()->SendPacket(&data);
                 }
                 else
                 {
-                    WorldPacket data(SMSG_REMOVED_SPELL, 3+4);
-                    data.WriteBits(1, 24); // Spell Count
+                    WorldPacket data(SMSG_REMOVED_SPELL, 4);
+                    data.WriteBits(1, 22);
+                    data.FlushBits();
                     data << uint32(spellId);
                     GetSession()->SendPacket(&data);
                 }
@@ -3957,25 +3944,8 @@ bool Player::addSpell(uint32 spellId, bool active, bool learning, bool dependent
 
     if (!disabled_case) // skip new spell adding if spell already known (disabled spells case)
     {
-        // talent: unlearn all other talent ranks (high and low)
-        sLog->outError(LOG_FILTER_GENERAL, "Player::addSpell unlearn Talent not work,need fix");
-        /*if (TalentSpellPos const* talentPos = GetTalentSpellPos(spellId))
-        {
-            if (TalentEntry const* talentInfo = sTalentStore.LookupEntry(talentPos->talent_id))
-            {
-                for (uint8 rank = 0; rank < MAX_TALENT_RANK; ++rank)
-                {
-                    // skip learning spell and no rank spell case
-                    uint32 rankSpellId = talentInfo->RankID[rank];
-                    if (!rankSpellId || rankSpellId == spellId)
-                        continue;
-
-                    removeSpell(rankSpellId, false, false);
-                }
-            }
-        }
-        // non talent spell: learn low ranks (recursive call)
-        else */if (uint32 prev_spell = sSpellMgr->GetPrevSpellInChain(spellId))
+         // non talent spell: learn low ranks (recursive call)
+        if (uint32 prev_spell = sSpellMgr->GetPrevSpellInChain(spellId))
         {
             if (!IsInWorld() || disabled)                    // at spells loading, no output, but allow save
                 addSpell(prev_spell, active, true, true, disabled);
@@ -4010,12 +3980,11 @@ bool Player::addSpell(uint32 spellId, bool active, bool learning, bool dependent
                             if (IsInWorld())                 // not send spell (re-/over-)learn packets at loading
                             {
                                 WorldPacket data(SMSG_SUPERCEDED_SPELL, 4 + 4);
-                                data.WriteBits(1, 24); //second count
-                                data.WriteBits(1, 24); //first count
+                                data.WriteBits(1, 22);
+                                data.WriteBits(1, 22);
                                 data.FlushBits();
-
-                                data << uint32(itr2->first);
                                 data << uint32(spellId);
+                                data << uint32(itr2->first);
                                 GetSession()->SendPacket(&data);
                             }
 
@@ -4030,12 +3999,11 @@ bool Player::addSpell(uint32 spellId, bool active, bool learning, bool dependent
                             if (IsInWorld())                 // not send spell (re-/over-)learn packets at loading
                             {
                                 WorldPacket data(SMSG_SUPERCEDED_SPELL, 4 + 4);
-                                data.WriteBits(1, 24); //second count
-                                data.WriteBits(1, 24); //first count
+                                data.WriteBits(1, 22);
+                                data.WriteBits(1, 22);
                                 data.FlushBits();
-
-                                data << uint32(spellId);
                                 data << uint32(itr2->first);
+                                data << uint32(spellId);
                                 GetSession()->SendPacket(&data);
                             }
 
@@ -4054,9 +4022,9 @@ bool Player::addSpell(uint32 spellId, bool active, bool learning, bool dependent
         // return false if spell disabled
         if (newspell->disabled)
             return false;
-    }
+    }      
 
-    uint32 talentCost = GetTalentSpellCost(spellId);
+    uint32 talentCost = 0;//GetTalentSpellCost(spellId);
 
     // cast talents with SPELL_EFFECT_LEARN_SPELL (other dependent spells will learned later as not auto-learned)
     // note: all spells with SPELL_EFFECT_LEARN_SPELL isn't passive
@@ -4425,12 +4393,11 @@ void Player::removeSpell(uint32 spell_id, bool disabled, bool learn_low_rank)
                     {
                         // downgrade spell ranks in spellbook and action bar
                         WorldPacket data(SMSG_SUPERCEDED_SPELL, 4 + 4);
-                        data.WriteBits(1, 24); //second count
-                        data.WriteBits(1, 24); //first count
+                        data.WriteBits(1, 22);
+                        data.WriteBits(1, 22);
                         data.FlushBits();
-
-                        data << uint32(spell_id);
                         data << uint32(prev_id);
+                        data << uint32(spell_id);
                         GetSession()->SendPacket(&data);
                         prev_activate = true;
                     }
@@ -5251,7 +5218,25 @@ void Player::DeleteOldCharacters(uint32 keepDays)
 void Player::BuildPlayerRepop()
 {
     WorldPacket data(SMSG_PRE_RESURRECT, GetPackGUID().size());
-    data.append(GetPackGUID());
+    ObjectGuid l_Guid = GetGUID();
+    data.WriteBit(l_Guid[0]);
+    data.WriteBit(l_Guid[3]);
+    data.WriteBit(l_Guid[5]);
+    data.WriteBit(l_Guid[4]);
+    data.WriteBit(l_Guid[6]);
+    data.WriteBit(l_Guid[7]);
+    data.WriteBit(l_Guid[1]);
+    data.WriteBit(l_Guid[2]);
+
+    data.WriteByteSeq(l_Guid[4]);
+    data.WriteByteSeq(l_Guid[6]);
+    data.WriteByteSeq(l_Guid[7]);
+    data.WriteByteSeq(l_Guid[0]);
+    data.WriteByteSeq(l_Guid[2]);
+    data.WriteByteSeq(l_Guid[5]);
+    data.WriteByteSeq(l_Guid[1]);
+    data.WriteByteSeq(l_Guid[3]);
+
     GetSession()->SendPacket(&data);
 
     if (getRace() == RACE_NIGHTELF)
@@ -5305,9 +5290,9 @@ void Player::BuildPlayerRepop()
 void Player::ResurrectPlayer(float restore_percent, bool applySickness)
 {
     WorldPacket data(SMSG_DEATH_RELEASE_LOC, 4*4);          // remove spirit healer position
+    data << float(0);
+    data << float(0);
     data << uint32(-1);
-    data << float(0);
-    data << float(0);
     data << float(0);
     GetSession()->SendPacket(&data);
 
@@ -5421,7 +5406,7 @@ void Player::CreateCorpse()
     // prevent existence 2 corpse for player
     SpawnCorpseBones();
 
-    uint32 _uf, _pb, _pb2, _cfb1, _cfb2;
+    //uint32 _uf, _pb, _pb2, _cfb1, _cfb2;
 
     Corpse* corpse = new Corpse((m_ExtraFlags & PLAYER_EXTRA_PVP_DEATH) ? CORPSE_RESURRECTABLE_PVP : CORPSE_RESURRECTABLE_PVE);
     SetPvPDeath(false);
@@ -5432,22 +5417,14 @@ void Player::CreateCorpse()
         return;
     }
 
-    _uf = GetUInt32Value(UNIT_FIELD_BYTES_0);
-    _pb = GetUInt32Value(PLAYER_BYTES);
-    _pb2 = GetUInt32Value(PLAYER_BYTES_2);
+    corpse->SetByteValue(CORPSE_FIELD_BYTES_2, 1, GetHairStyle());
+    corpse->SetByteValue(CORPSE_FIELD_BYTES_2, 3, GetFacialHair());
+    corpse->SetByteValue(CORPSE_FIELD_BYTES_2, 2, GetHairColor());
+    corpse->SetByteValue(CORPSE_FIELD_BYTES_2, 0, GetFace());
 
-    uint8 race       = (uint8)(_uf);
-    uint8 skin       = (uint8)(_pb);
-    uint8 face       = (uint8)(_pb >> 8);
-    uint8 hairstyle  = (uint8)(_pb >> 16);
-    uint8 haircolor  = (uint8)(_pb >> 24);
-    uint8 facialhair = (uint8)(_pb2);
-
-    _cfb1 = ((0x00) | (race << 8) | (getGender() << 16) | (skin << 24));
-    _cfb2 = ((face) | (hairstyle << 8) | (haircolor << 16) | (facialhair << 24));
-
-    corpse->SetUInt32Value(CORPSE_FIELD_BYTES_1, _cfb1);
-    corpse->SetUInt32Value(CORPSE_FIELD_BYTES_2, _cfb2);
+    corpse->SetByteValue(CORPSE_FIELD_BYTES_1, 0, GetSkin());
+    corpse->SetByteValue(CORPSE_FIELD_BYTES_1, 1, getRace());
+    corpse->SetByteValue(CORPSE_FIELD_BYTES_1, 2, getGender());
 
     uint32 flags = CORPSE_FLAG_UNK2;
     if (HasFlag(PLAYER_FLAGS, PLAYER_FLAGS_HIDE_HELM))
@@ -5471,7 +5448,6 @@ void Player::CreateCorpse()
             iIventoryType = m_items[i]->GetTemplate()->InventoryType;
 
             _cfi = iDisplayID | (iIventoryType << 24);
-            corpse->SetUInt32Value(CORPSE_FIELD_ITEM + i, _cfi);
         }
     }
 
@@ -5728,10 +5704,10 @@ void Player::RepopAtGraveyard()
         if (isDead())                                        // not send if alive, because it used in TeleportTo()
         {
             WorldPacket data(SMSG_DEATH_RELEASE_LOC, 4*4);  // show spirit healer position on minimap
-            data << ClosestGrave->map_id;
-            data << ClosestGrave->x;
             data << ClosestGrave->y;
             data << ClosestGrave->z;
+            data << ClosestGrave->map_id;
+            data << ClosestGrave->x;
             GetSession()->SendPacket(&data);
         }
     }
@@ -6260,8 +6236,8 @@ bool Player::UpdateSkill(uint32 skill_id, uint32 step)
     uint16 field = itr->second.pos / 2;
     uint8 offset = itr->second.pos & 1; // itr->second.pos % 2
 
-    uint16 value = GetUInt16Value(PLAYER_SKILL_RANK_0 + field, offset);
-    uint16 max = GetUInt16Value(PLAYER_SKILL_MAX_RANK_0 + field, offset);
+    uint16 value = GetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_RANK + field, offset);
+    uint16 max = GetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_MAX_RANK + field, offset);
 
     if (!max || !value || value >= max)
         return false;
@@ -6272,7 +6248,7 @@ bool Player::UpdateSkill(uint32 skill_id, uint32 step)
         if (new_value > max)
             new_value = max;
 
-        SetUInt16Value(PLAYER_SKILL_RANK_0 + field, offset, new_value);
+        SetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_RANK + field, offset, new_value);
         if (itr->second.uState != SKILL_NEW)
             itr->second.uState = SKILL_CHANGED;
 
@@ -6393,8 +6369,8 @@ bool Player::UpdateSkillPro(uint16 skillId, int32 chance, uint32 step)
     uint8 offset = itr->second.pos & 1; // itr->second.pos % 2
 
     //For MOP,unknow about skill fileds
-    uint16 value = GetUInt16Value(PLAYER_SKILL_RANK_0 + field, offset);
-    uint16 max = GetUInt16Value(PLAYER_SKILL_MAX_RANK_0 + field, offset);
+    uint16 value = GetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_RANK + field, offset);
+    uint16 max = GetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_MAX_RANK + field, offset);
 
     if (!max || !value || value >= max)
         return false;
@@ -6409,7 +6385,7 @@ bool Player::UpdateSkillPro(uint16 skillId, int32 chance, uint32 step)
     if (new_value > max)
         new_value = max;
 
-    SetUInt16Value(PLAYER_SKILL_RANK_0 + field, offset, new_value);
+    SetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_RANK + field, offset, new_value);
     if (itr->second.uState != SKILL_NEW)
         itr->second.uState = SKILL_CHANGED;
 
@@ -6435,7 +6411,7 @@ void Player::ModifySkillBonus(uint32 skillid, int32 val, bool talent)
     if (itr == mSkillStatus.end() || itr->second.uState == SKILL_DELETED)
         return;
 
-    uint16 field = itr->second.pos / 2 + (talent ? PLAYER_SKILL_TALENT_0 : PLAYER_SKILL_MODIFIER_0);
+    uint16 field = itr->second.pos / 2 + PLAYER_SKILL_LINEID_0 + (talent ? SKILL_OFFSET_TALENT : SKILL_OFFSET_MODIFIER);
     uint8 offset = itr->second.pos & 1; // itr->second.pos % 2
 
     uint16 bonus = GetUInt16Value(field, offset);
@@ -6466,14 +6442,14 @@ void Player::UpdateSkillsForLevel()
         uint16 field = itr->second.pos / 2;
         uint8 offset = itr->second.pos & 1; // itr->second.pos % 2
 
-        uint16 val = GetUInt16Value(PLAYER_SKILL_RANK_0 + field, offset);
-        uint16 max = GetUInt16Value(PLAYER_SKILL_MAX_RANK_0 + field, offset);
+        //uint16 val = GetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_RANK + field, offset);
+        uint16 max = GetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_MAX_RANK + field, offset);
 
         /// update only level dependent max skill values
         if (max != 1)
         {
-            SetUInt16Value(PLAYER_SKILL_RANK_0 + field, offset, maxSkill);
-            SetUInt16Value(PLAYER_SKILL_MAX_RANK_0 + field, offset, maxSkill);
+            SetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_RANK + field, offset, maxSkill);
+            SetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_MAX_RANK + field, offset, maxSkill);
             if (itr->second.uState != SKILL_NEW)
                 itr->second.uState = SKILL_CHANGED;
         }
@@ -6497,11 +6473,11 @@ void Player::UpdateSkillsToMaxSkillsForLevel()
         uint16 field = itr->second.pos / 2;
         uint8 offset = itr->second.pos & 1; // itr->second.pos % 2
 
-        uint16 max = GetUInt16Value(PLAYER_SKILL_MAX_RANK_0 + field, offset);
+        uint16 max = GetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_MAX_RANK + field, offset);
 
         if (max > 1)
         {
-            SetUInt16Value(PLAYER_SKILL_RANK_0 + field, offset, max);
+            SetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_RANK + field, offset, max);
 
             if (itr->second.uState != SKILL_NEW)
                 itr->second.uState = SKILL_CHANGED;
@@ -6525,19 +6501,19 @@ void Player::SetSkill(uint16 id, uint16 step, uint16 newVal, uint16 maxVal)
     {
         uint16 field = itr->second.pos / 2;
         uint8 offset = itr->second.pos & 1; // itr->second.pos % 2
-        currVal = GetUInt16Value(PLAYER_SKILL_RANK_0 + field, offset);
+        currVal = GetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_RANK + field, offset);
         if (newVal)
         {
             // if skill value is going down, update enchantments before setting the new value
             if (newVal < currVal)
                 UpdateSkillEnchantments(id, currVal, newVal);
 
-            SetUInt16Value(PLAYER_SKILL_LINEID_0 + field, offset, id);
+            SetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_LINEID + field, offset, id);
             // update step
-            SetUInt16Value(PLAYER_SKILL_STEP_0 + field, offset, step);
+            SetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_STEP + field, offset, step);
             // update value
-            SetUInt16Value(PLAYER_SKILL_RANK_0 + field, offset, newVal);
-            SetUInt16Value(PLAYER_SKILL_MAX_RANK_0 + field, offset, maxVal);
+            SetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_RANK + field, offset, newVal);
+            SetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_MAX_RANK + field, offset, maxVal);
 
             if (itr->second.uState != SKILL_NEW)
                 itr->second.uState = SKILL_CHANGED;
@@ -6555,12 +6531,13 @@ void Player::SetSkill(uint16 id, uint16 step, uint16 newVal, uint16 maxVal)
             //remove enchantments needing this skill
             UpdateSkillEnchantments(id, currVal, 0);
             // clear skill fields
-            SetUInt16Value(PLAYER_SKILL_LINEID_0 + field, offset, 0);
-            SetUInt16Value(PLAYER_SKILL_STEP_0 + field, offset, 0);
-            SetUInt16Value(PLAYER_SKILL_RANK_0 + field, offset, 0);
-            SetUInt16Value(PLAYER_SKILL_MAX_RANK_0 + field, offset, 0);
-            SetUInt16Value(PLAYER_SKILL_MODIFIER_0 + field, offset, 0);
-            SetUInt16Value(PLAYER_SKILL_TALENT_0 + field, offset, 0);
+            SetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_LINEID + field, offset, 0);
+            SetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_STEP + field, offset, 0);
+            SetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_RANK + field, offset, 0);
+            SetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_MAX_RANK + field, offset, 0);
+            SetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_MODIFIER + field, offset, 0);
+            SetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_TALENT + field, offset, 0);
+            SetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_UNK + field, offset, 0);
 
             // mark as deleted or simply remove from map if not saved yet
             if (itr->second.uState != SKILL_NEW)
@@ -6598,7 +6575,7 @@ void Player::SetSkill(uint16 id, uint16 step, uint16 newVal, uint16 maxVal)
                     return;
                 }
 
-                SetUInt16Value(PLAYER_SKILL_LINEID_0 + field, offset, id);
+                SetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_LINEID + field, offset, id);
                 if (skillEntry->categoryId == SKILL_CATEGORY_PROFESSION)
                 {
                     if (!GetUInt32Value(PLAYER_PROFESSION_SKILL_LINE_1))
@@ -6607,9 +6584,9 @@ void Player::SetSkill(uint16 id, uint16 step, uint16 newVal, uint16 maxVal)
                         SetUInt32Value(PLAYER_PROFESSION_SKILL_LINE_1 + 1, id);
                 }
 
-                SetUInt16Value(PLAYER_SKILL_STEP_0 + field, offset, step);
-                SetUInt16Value(PLAYER_SKILL_RANK_0 + field, offset, newVal);
-                SetUInt16Value(PLAYER_SKILL_MAX_RANK_0 + field, offset, maxVal);
+                SetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_STEP + field, offset, step);
+                SetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_RANK + field, offset, newVal);
+                SetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_MAX_RANK + field, offset, maxVal);
 
                 UpdateSkillEnchantments(id, currVal, newVal);
                 UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_REACH_SKILL_LEVEL, id);
@@ -6625,8 +6602,8 @@ void Player::SetSkill(uint16 id, uint16 step, uint16 newVal, uint16 maxVal)
                     mSkillStatus.insert(SkillStatusMap::value_type(id, SkillStatusData(i, SKILL_NEW)));
 
                 // apply skill bonuses
-                SetUInt16Value(PLAYER_SKILL_MODIFIER_0 + field, offset, 0);
-                SetUInt16Value(PLAYER_SKILL_TALENT_0 + field, offset, 0);
+                SetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_MODIFIER + field, offset, 0);
+                SetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_TALENT + field, offset, 0);
 
                 // temporary bonuses
                 AuraEffectList const& mModSkill = GetAuraEffectsByType(SPELL_AURA_MOD_SKILL);
@@ -6667,7 +6644,7 @@ uint16 Player::GetSkillStep(uint16 skill) const
     if (itr == mSkillStatus.end() || itr->second.uState == SKILL_DELETED)
         return 0;
 
-    return GetUInt16Value(PLAYER_SKILL_STEP_0 + itr->second.pos / 2, itr->second.pos & 1);
+    return GetUInt16Value(PLAYER_SKILL_LINEID_0 + itr->second.pos / 2, itr->second.pos & 1);
 }
 
 uint16 Player::GetSkillValue(uint32 skill) const
@@ -6682,9 +6659,9 @@ uint16 Player::GetSkillValue(uint32 skill) const
     uint16 field = itr->second.pos / 2;
     uint8 offset = itr->second.pos & 1;
 
-    int32 result = int32(GetUInt16Value(PLAYER_SKILL_RANK_0 + field, offset));
-    result += int32(GetUInt16Value(PLAYER_SKILL_MODIFIER_0 + field, offset));
-    result += int32(GetUInt16Value(PLAYER_SKILL_TALENT_0 + field, offset));
+    int32 result = int32(GetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_RANK + field, offset));
+    result += int32(GetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_MODIFIER + field, offset));
+    result += int32(GetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_TALENT + field, offset));
     return result < 0 ? 0 : result;
 }
 
@@ -6701,9 +6678,9 @@ uint16 Player::GetMaxSkillValue(uint32 skill) const
     uint16 field = itr->second.pos / 2;
     uint8 offset = itr->second.pos & 1;
 
-    int32 result = int32(GetUInt16Value(PLAYER_SKILL_MAX_RANK_0 + field, offset));
-    result += int32(GetUInt16Value(PLAYER_SKILL_MODIFIER_0 + field, offset));
-    result += int32(GetUInt16Value(PLAYER_SKILL_TALENT_0 + field, offset));
+    int32 result = int32(GetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_MAX_RANK + field, offset));
+    result += int32(GetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_MODIFIER + field, offset));
+    result += int32(GetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_TALENT + field, offset));
     return result < 0 ? 0 : result;
 }
 
@@ -6719,7 +6696,7 @@ uint16 Player::GetPureMaxSkillValue(uint32 skill) const
     uint16 field = itr->second.pos / 2;
     uint8 offset = itr->second.pos & 1;
 
-    return GetUInt16Value(PLAYER_SKILL_MAX_RANK_0 + field, offset);
+    return GetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_MAX_RANK + field, offset);
 }
 
 uint16 Player::GetBaseSkillValue(uint32 skill) const
@@ -6735,8 +6712,8 @@ uint16 Player::GetBaseSkillValue(uint32 skill) const
     uint16 field = itr->second.pos / 2;
     uint8 offset = itr->second.pos & 1;
 
-    int32 result = int32(GetUInt16Value(PLAYER_SKILL_RANK_0 + field, offset));
-    result += int32(GetUInt16Value(PLAYER_SKILL_TALENT_0 + field, offset));
+    int32 result = int32(GetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_RANK + field, offset));
+    result += int32(GetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_TALENT + field, offset));
     return result < 0 ? 0 : result;
 }
 
@@ -6753,7 +6730,7 @@ uint16 Player::GetPureSkillValue(uint32 skill) const
     uint16 field = itr->second.pos / 2;
     uint8 offset = itr->second.pos & 1;
 
-    return GetUInt16Value(PLAYER_SKILL_RANK_0 + field, offset);
+    return GetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_RANK + field, offset);
 }
 
 int16 Player::GetSkillPermBonusValue(uint32 skill) const
@@ -6769,7 +6746,7 @@ int16 Player::GetSkillPermBonusValue(uint32 skill) const
     uint16 field = itr->second.pos / 2;
     uint8 offset = itr->second.pos & 1;
 
-    return GetUInt16Value(PLAYER_SKILL_TALENT_0 + field, offset);
+    return GetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_TALENT + field, offset);
     return 0;
 }
 
@@ -6785,7 +6762,7 @@ int16 Player::GetSkillTempBonusValue(uint32 skill) const
     uint16 field = itr->second.pos / 2;
     uint8 offset = itr->second.pos & 1;
 
-    return GetUInt16Value(PLAYER_SKILL_MODIFIER_0 + field, offset);
+    return GetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_MODIFIER + field, offset);
     return 0;
 }
 
@@ -7730,7 +7707,7 @@ void Player::SendNewCurrency(uint32 id) const
 
     ByteBuffer currencyData;
     WorldPacket packet(SMSG_INIT_CURRENCY, 4 + (5*4 + 1));
-    packet.WriteBits(1, 22);
+    packet.WriteBits(1, 21);
 
     CurrencyTypesEntry const* entry = sCurrencyTypesStore.LookupEntry(id);
     if (!entry) // should never happen
@@ -7740,13 +7717,15 @@ void Player::SendNewCurrency(uint32 id) const
     uint32 weekCount = itr->second.weekCount / precision;
     uint32 weekCap = GetCurrencyWeekCap(entry) / precision;
 
-	packet.WriteBits(0, 5); // some flags
-	packet.WriteBit(0);     // season total earned
+    packet.WriteBit(0);     // season total earned
     packet.WriteBit(weekCount);
-	packet.WriteBit(weekCap);
-   
-	currencyData << uint32(entry->ID);
+    packet.WriteBit(weekCap);
+    packet.WriteBits(0, 5); // some flags
+
     currencyData << uint32(itr->second.totalCount / precision);
+
+    //if (seasonTotal)
+    //    currencyData << uint32(seasonTotal / precision);
 
     if (weekCap)
         currencyData << uint32(weekCap);
@@ -7754,8 +7733,7 @@ void Player::SendNewCurrency(uint32 id) const
     if (weekCount)
         currencyData << uint32(weekCount);
 
-	//if (seasonTotal)
-    //    currencyData << uint32(seasonTotal / precision);
+    currencyData << uint32(entry->ID);
 
     packet.FlushBits();
     packet.append(currencyData);
@@ -7764,10 +7742,11 @@ void Player::SendNewCurrency(uint32 id) const
 
 void Player::SendCurrencies() const
 {
-    WorldPacket packet(SMSG_INIT_CURRENCY);
-    ByteBuffer currencyData;
+     ByteBuffer currencyData;
+    WorldPacket packet(SMSG_INIT_CURRENCY, 4 + _currencyStorage.size()*(5*4 + 1));
+    size_t count_pos = packet.bitwpos();
+    packet.WriteBits(_currencyStorage.size(), 21);
 
-    packet.WriteBits(_currencyStorage.size(), 22);
     size_t count = 0;
     for (PlayerCurrenciesMap::const_iterator itr = _currencyStorage.begin(); itr != _currencyStorage.end(); ++itr)
     {
@@ -7781,13 +7760,15 @@ void Player::SendCurrencies() const
         uint32 weekCount = itr->second.weekCount / precision;
         uint32 weekCap = GetCurrencyWeekCap(entry) / precision;
 
-        packet.WriteBits(0, 5); // some flags
         packet.WriteBit(0);     // season total earned
         packet.WriteBit(weekCount);
-		packet.WriteBit(weekCap);
+        packet.WriteBit(weekCap);
+        packet.WriteBits(0, 5); // some flags
 
-        currencyData << uint32(entry->ID);
         currencyData << uint32(itr->second.totalCount / precision);
+
+        //if (seasonTotal)
+        //    currencyData << uint32(seasonTotal / precision);
 
         if (weekCap)
             currencyData << uint32(weekCap);
@@ -7795,16 +7776,14 @@ void Player::SendCurrencies() const
         if (weekCount)
             currencyData << uint32(weekCount);
 
-		//if (seasonTotal)
-        //    currencyData << uint32(seasonTotal / precision);
+        currencyData << uint32(entry->ID);
 
         ++count;
     }
 
     packet.FlushBits();
     packet.append(currencyData);
-    if(count != _currencyStorage.size()) packet.PutBits(0, count, 22);
-
+    packet.PutBits(count_pos, count, 21);
     GetSession()->SendPacket(&packet);
 }
 
@@ -7935,19 +7914,20 @@ void Player::ModifyCurrency(uint32 id, int32 count, bool printLog/* = true*/, bo
 
         WorldPacket packet(SMSG_UPDATE_CURRENCY, 12);
 
-        packet << uint32(id);
-		packet << uint32(newTotalCount / precision);
-
-        packet.WriteBit(weekCap != 0);
-		packet.WriteBit(!printLog); // print in log
         packet.WriteBit(0); // hasSeasonCount
-        
+        packet.WriteBit(!printLog); // print in log
+        packet.WriteBit(weekCap != 0);
+        packet.FlushBits();
 
-        //if (hasSeasonCount)
-        //    packet << uint32(0);
-
-        if (weekCap)
+        if (weekCap != 0)
             packet << uint32(newWeekCount / precision);
+
+        packet << uint32(newTotalCount / precision);
+        packet << uint32(id);
+        packet << uint32(0); //UNK
+
+        // if (hasSeasonCount) 
+        //      packet << uint32(seasontotalearned);
 
         GetSession()->SendPacket(&packet);
     }
@@ -8226,7 +8206,7 @@ void Player::UpdateZone(uint32 newZone, uint32 newArea)
         if (GetSession() && group->isLFGGroup() && sLFGMgr->IsTeleported(GetGUID()))
             for (GroupReference* itr = group->GetFirstMember(); itr != NULL; itr = itr->next())
                 if (Player* member = itr->getSource())
-                    GetSession()->SendNameQueryOpcode(member->GetGUID());
+                    GetSession()->SendNameQueryOpcode(member->GetGUID(), realmID);
     }
 
     m_zoneUpdateId    = newZone;
@@ -9430,44 +9410,40 @@ void Player::SendLoot(uint64 guid, LootType loot_type)
         if (go->getLootState() == GO_READY)
         {
             uint32 lootid = go->GetGOInfo()->GetLootId();
-
-            //TODO: fix this big hack
-            if ((go->GetEntry() == BG_AV_OBJECTID_MINE_N || go->GetEntry() == BG_AV_OBJECTID_MINE_S))
-                if (Battleground* bg = GetBattleground())
-                    if (bg->GetTypeID(true) == BATTLEGROUND_AV)
-                        if (!(((BattlegroundAV*)bg)->PlayerCanDoMineQuest(go->GetEntry(), GetTeam())))
-                        {
-                            SendLootRelease(guid);
-                            return;
-                        }
-
-            if (lootid)
-            {
-                loot->clear();
-
-                Group* group = GetGroup();
-                bool groupRules = (group && go->GetGOInfo()->type == GAMEOBJECT_TYPE_CHEST && go->GetGOInfo()->chest.groupLootRules);
-
-                // check current RR player and get next if necessary
-                if (groupRules)
-                    group->UpdateLooterGuid(go, true);
-
-                loot->FillLoot(lootid, LootTemplates_Gameobject, this, !groupRules, false, go->GetLootMode());
-
-                // get next RR player (for next loot)
-                if (groupRules)
-                    group->UpdateLooterGuid(go);
-            }
-
-            if (loot_type == LOOT_FISHING)
-                go->getFishLoot(loot, this);
-
-            if (go->GetGOInfo()->type == GAMEOBJECT_TYPE_CHEST && go->GetGOInfo()->chest.groupLootRules)
-            {
-                if (Group* group = GetGroup())
+            if (Battleground* bg = GetBattleground())
+                if (!bg->CanActivateGO(go->GetEntry(), GetTeam()))
                 {
-                    switch (group->GetLootMethod())
+                    SendLootRelease(guid);
+                    return;
+                }
+
+                if (lootid)
+                {
+                    loot->clear();
+
+                    Group* group = GetGroup();
+                    bool groupRules = (group && go->GetGOInfo()->type == GAMEOBJECT_TYPE_CHEST && go->GetGOInfo()->chest.groupLootRules);
+
+                    // check current RR player and get next if necessary
+                    if (groupRules)
+                        group->UpdateLooterGuid(go, true);
+
+                    loot->FillLoot(lootid, LootTemplates_Gameobject, this, !groupRules, false, go->GetLootMode());
+
+                    // get next RR player (for next loot)
+                    if (groupRules)
+                        group->UpdateLooterGuid(go);
+                }
+
+                if (loot_type == LOOT_FISHING)
+                    go->getFishLoot(loot, this);
+
+                if (go->GetGOInfo()->type == GAMEOBJECT_TYPE_CHEST && go->GetGOInfo()->chest.groupLootRules)
+                {
+                    if (Group* group = GetGroup())
                     {
+                        switch (group->GetLootMethod())
+                        {
                         case GROUP_LOOT:
                             // GroupLoot: rolls items over threshold. Items with quality < threshold, round robin
                             group->GroupLoot(loot, go);
@@ -9480,11 +9456,11 @@ void Player::SendLoot(uint64 guid, LootType loot_type)
                             break;
                         default:
                             break;
+                        }
                     }
                 }
-            }
 
-            go->SetLootState(GO_ACTIVATED, this);
+                go->SetLootState(GO_ACTIVATED, this);
         }
 
         if (go->getLootState() == GO_ACTIVATED)
@@ -9493,18 +9469,18 @@ void Player::SendLoot(uint64 guid, LootType loot_type)
             {
                 switch (group->GetLootMethod())
                 {
-                    case MASTER_LOOT:
-                        permission = MASTER_PERMISSION;
-                        break;
-                    case FREE_FOR_ALL:
-                        permission = ALL_PERMISSION;
-                        break;
-                    case ROUND_ROBIN:
-                        permission = ROUND_ROBIN_PERMISSION;
-                        break;
-                    default:
-                        permission = GROUP_PERMISSION;
-                        break;
+                case MASTER_LOOT:
+                    permission = MASTER_PERMISSION;
+                    break;
+                case FREE_FOR_ALL:
+                    permission = ALL_PERMISSION;
+                    break;
+                case ROUND_ROBIN:
+                    permission = ROUND_ROBIN_PERMISSION;
+                    break;
+                default:
+                    permission = GROUP_PERMISSION;
+                    break;
                 }
             }
             else
@@ -9534,25 +9510,25 @@ void Player::SendLoot(uint64 guid, LootType loot_type)
 
             switch (loot_type)
             {
-                case LOOT_DISENCHANTING:
-                    loot->FillLoot(item->GetTemplate()->DisenchantID, LootTemplates_Disenchant, this, true);
-                    break;
-                case LOOT_PROSPECTING:
-                    loot->FillLoot(item->GetEntry(), LootTemplates_Prospecting, this, true);
-                    break;
-                case LOOT_MILLING:
-                    loot->FillLoot(item->GetEntry(), LootTemplates_Milling, this, true);
-                    break;
-                default:
-                    loot->generateMoneyLoot(item->GetTemplate()->MinMoneyLoot, item->GetTemplate()->MaxMoneyLoot);
-                    loot->FillLoot(item->GetEntry(), LootTemplates_Item, this, true, loot->gold != 0);
+            case LOOT_DISENCHANTING:
+                loot->FillLoot(item->GetTemplate()->DisenchantID, LootTemplates_Disenchant, this, true);
+                break;
+            case LOOT_PROSPECTING:
+                loot->FillLoot(item->GetEntry(), LootTemplates_Prospecting, this, true);
+                break;
+            case LOOT_MILLING:
+                loot->FillLoot(item->GetEntry(), LootTemplates_Milling, this, true);
+                break;
+            default:
+                loot->generateMoneyLoot(item->GetTemplate()->MinMoneyLoot, item->GetTemplate()->MaxMoneyLoot);
+                loot->FillLoot(item->GetEntry(), LootTemplates_Item, this, true, loot->gold != 0);
 
-                    // Force save the loot and money items that were just rolled
-                    //  Also saves the container item ID in Loot struct (not to DB)
-                    if (loot->gold > 0 || loot->unlootedCount > 0)
-                        item->ItemContainerSaveLootToDB();
+                // Force save the loot and money items that were just rolled
+                //  Also saves the container item ID in Loot struct (not to DB)
+                if (loot->gold > 0 || loot->unlootedCount > 0)
+                    item->ItemContainerSaveLootToDB();
 
-                    break;
+                break;
             }
         }
     }
@@ -9639,18 +9615,18 @@ void Player::SendLoot(uint64 guid, LootType loot_type)
                 {
                     switch (group->GetLootMethod())
                     {
-                        case GROUP_LOOT:
-                            // GroupLoot: rolls items over threshold. Items with quality < threshold, round robin
-                            group->GroupLoot(loot, creature);
-                            break;
-                        case NEED_BEFORE_GREED:
-                            group->NeedBeforeGreed(loot, creature);
-                            break;
-                        case MASTER_LOOT:
-                            group->MasterLoot(loot, creature);
-                            break;
-                        default:
-                            break;
+                    case GROUP_LOOT:
+                        // GroupLoot: rolls items over threshold. Items with quality < threshold, round robin
+                        group->GroupLoot(loot, creature);
+                        break;
+                    case NEED_BEFORE_GREED:
+                        group->NeedBeforeGreed(loot, creature);
+                        break;
+                    case MASTER_LOOT:
+                        group->MasterLoot(loot, creature);
+                        break;
+                    default:
+                        break;
                     }
                 }
             }
@@ -9671,18 +9647,18 @@ void Player::SendLoot(uint64 guid, LootType loot_type)
                     {
                         switch (group->GetLootMethod())
                         {
-                            case MASTER_LOOT:
-                                permission = MASTER_PERMISSION;
-                                break;
-                            case FREE_FOR_ALL:
-                                permission = ALL_PERMISSION;
-                                break;
-                            case ROUND_ROBIN:
-                                permission = ROUND_ROBIN_PERMISSION;
-                                break;
-                            default:
-                                permission = GROUP_PERMISSION;
-                                break;
+                        case MASTER_LOOT:
+                            permission = MASTER_PERMISSION;
+                            break;
+                        case FREE_FOR_ALL:
+                            permission = ALL_PERMISSION;
+                            break;
+                        case ROUND_ROBIN:
+                            permission = ROUND_ROBIN_PERMISSION;
+                            break;
+                        default:
+                            permission = GROUP_PERMISSION;
+                            break;
                         }
                     }
                     else
@@ -9709,15 +9685,457 @@ void Player::SendLoot(uint64 guid, LootType loot_type)
     // need know merged fishing/corpse loot type for achievements
     loot->loot_type = loot_type;
 
+    uint32 l_CurrencyCount = 0;
+    uint32 l_ItemCount = 0;
+    std::map<uint32, bool> l_AllowMap;
+    std::map<uint32, uint8> l_SlotType;
+    switch (permission)
+    {
+        case GROUP_PERMISSION:
+            {
+                for (uint8 i = 0; i < loot->items.size(); ++i)
+                {
+                    if (!loot->items[i].is_looted && !loot->items[i].freeforall && loot->items[i].conditions.empty() && loot->items[i].AllowedForPlayer(this))
+                    {
+
+                        if (loot->items[i].is_blocked)
+                        {
+                            l_SlotType[i] = LOOT_SLOT_TYPE_ROLL_ONGOING;
+                        }
+                        else if (loot->roundRobinPlayer == 0 || !loot->items[i].is_underthreshold || this->GetGUID() == loot->roundRobinPlayer)
+                        {
+                            l_SlotType[i] = LOOT_SLOT_TYPE_ALLOW_LOOT;
+                        }
+                        else
+                            continue;
+
+                        ++l_ItemCount;
+                        l_AllowMap[i] = true;
+                    }
+                }
+                break;
+            }
+        case ROUND_ROBIN_PERMISSION:
+            {
+                for (uint8 i = 0; i < loot->items.size(); ++i)
+                {
+                    if (!loot->items[i].is_looted && !loot->items[i].freeforall && loot->items[i].conditions.empty() && loot->items[i].AllowedForPlayer(this))
+                    {
+                        if (loot->roundRobinPlayer != 0 && this->GetGUID() != loot->roundRobinPlayer)
+                            continue;
+
+                        ++l_ItemCount;
+                        l_AllowMap[i] = true;
+                        l_SlotType[i] = LOOT_SLOT_TYPE_ALLOW_LOOT;
+                    }
+                }
+                break;
+            }
+        case ALL_PERMISSION:
+        case MASTER_PERMISSION:
+        case OWNER_PERMISSION:
+            {
+                uint8 slot_type = LOOT_SLOT_TYPE_ALLOW_LOOT;
+                switch (permission)
+                {
+                    case MASTER_PERMISSION:
+                        slot_type = LOOT_SLOT_TYPE_MASTER;
+                        break;
+                    case OWNER_PERMISSION:
+                        slot_type = LOOT_SLOT_TYPE_OWNER;
+                        break;
+                    default:
+                        break;
+                }
+
+                for (uint8 i = 0; i < loot->items.size(); ++i)
+                {
+                    if (!loot->items[i].is_looted && !loot->items[i].freeforall && loot->items[i].conditions.empty() && loot->items[i].AllowedForPlayer(this))
+                    {
+                        ++l_ItemCount;
+                        l_AllowMap[i] = true;
+                        l_SlotType[i] = slot_type;
+                    }
+                }
+                break;
+            }
+    }
+
+    LootSlotType slotType = permission == OWNER_PERMISSION ? LOOT_SLOT_TYPE_OWNER : LOOT_SLOT_TYPE_ALLOW_LOOT;
+    QuestItemMap const& lootPlayerQuestItems = loot->GetPlayerQuestItems();
+    QuestItemMap::const_iterator q_itr = lootPlayerQuestItems.find(this->GetGUIDLow());
+    if (q_itr != lootPlayerQuestItems.end())
+    {
+        QuestItemList* q_list = q_itr->second;
+        for (QuestItemList::const_iterator qi = q_list->begin(); qi != q_list->end(); ++qi)
+        {
+            LootItem &item = loot->quest_items[qi->index];
+            if (!qi->is_looted && !item.is_looted)
+            {
+                ++l_ItemCount;
+            }
+        }
+    }
+
+    QuestItemMap const& lootPlayerFFAItems = loot->GetPlayerFFAItems();
+    QuestItemMap::const_iterator ffa_itr = lootPlayerFFAItems.find(this->GetGUIDLow());
+    if (ffa_itr != lootPlayerFFAItems.end())
+    {
+        QuestItemList* ffa_list = ffa_itr->second;
+        for (QuestItemList::const_iterator fi = ffa_list->begin(); fi != ffa_list->end(); ++fi)
+        {
+            LootItem &item = loot->items[fi->index];
+            if (!fi->is_looted && !item.is_looted)
+            {
+                ++l_ItemCount;
+            }
+        }
+    }
+
+    QuestItemMap const& lootPlayerNonQuestNonFFAConditionalItems = loot->GetPlayerNonQuestNonFFAConditionalItems();
+    QuestItemMap::const_iterator nn_itr = lootPlayerNonQuestNonFFAConditionalItems.find(this->GetGUIDLow());
+    if (nn_itr != lootPlayerNonQuestNonFFAConditionalItems.end())
+    {
+        QuestItemList* conditional_list = nn_itr->second;
+        for (QuestItemList::const_iterator ci = conditional_list->begin(); ci != conditional_list->end(); ++ci)
+        {
+            LootItem &item = loot->items[ci->index];
+            if (!ci->is_looted && !item.is_looted)
+            {
+                ++l_ItemCount;
+            }
+        }
+    }
+
     WorldPacket data(SMSG_LOOT_RESPONSE, 8 + 1 + 50 + 1 + 1);           // we guess size
+    ObjectGuid l_LootObjectGuid = guid;
+    ObjectGuid l_LootGuid       = loot->Guid;
+    
+    bool l_CanLoot = permission != NONE_PERMISSION;
+    bool byte20 = false;
+    bool byte45 = true;
 
-	data << LootView(*loot, this, permission);
+    if (!l_CanLoot)
+    {
+        l_CurrencyCount = 0;
+        l_ItemCount = 0;
+    }
 
-	/*
-    data << uint64(guid);
-    data << uint8(loot_type);
-    data << LootView(*loot, this, permission);
-	*/
+    data.WriteBit(byte45);
+    data.WriteBit(l_LootObjectGuid[0]);
+    data.WriteBit(l_LootObjectGuid[1]);
+    data.WriteBit(!GetGroup());             // Loot threshold
+    data.WriteBit(l_LootGuid[7]);
+    data.WriteBit(l_LootObjectGuid[3]);
+    data.WriteBit(l_LootGuid[2]);
+    data.WriteBit(l_LootGuid[0]);
+    data.WriteBit(!permission);
+    data.WriteBit(l_LootGuid[1]);
+    data.WriteBit(l_CanLoot);
+    data.WriteBit(l_LootObjectGuid[6]);
+    data.WriteBit(!loot->loot_type);
+    data.WriteBit(l_LootGuid[3]);
+    data.WriteBit(!byte20);
+    data.WriteBits(l_CurrencyCount, 20);
+    data.WriteBit(l_LootObjectGuid[7]);
+    data.WriteBit(l_LootObjectGuid[4]);
+    data.WriteBit(l_LootGuid[6]);
+
+    for (uint32 l_I = 0 ; l_I < l_CurrencyCount ; ++l_I)
+        data.WriteBits(0, 3);
+
+    data.WriteBit(l_LootObjectGuid[2]);
+    data.WriteBit(!loot->gold);
+    data.WriteBit(l_LootGuid[4]);
+    data.WriteBits(l_ItemCount, 19);
+
+    //////////////////////////////////////////////////////////////////////////
+
+    for (uint32 l_I = 0 ; l_I < loot->items.size() ; ++l_I)
+    {
+        if (l_AllowMap[l_I] == false)
+            continue;
+
+        data.WriteBit(!l_SlotType[l_I]);
+        data.WriteBit(!l_I);
+        data.WriteBits(1, 2);
+        data.WriteBit(0);
+        data.WriteBits(2, 3);
+    }
+    if (q_itr != lootPlayerQuestItems.end())
+    {
+        QuestItemList* q_list = q_itr->second;
+        for (QuestItemList::const_iterator qi = q_list->begin(); qi != q_list->end(); ++qi)
+        {
+            LootItem &item = loot->quest_items[qi->index];
+            if (!qi->is_looted && !item.is_looted)
+            {
+                LootSlotType l_CurrentSlotType = slotType;
+                if (item.follow_loot_rules)
+                {
+                    switch (permission)
+                    {
+                        case MASTER_PERMISSION:
+                            l_CurrentSlotType = LOOT_SLOT_TYPE_MASTER;
+                            break;
+                        case GROUP_PERMISSION:
+                        case ROUND_ROBIN_PERMISSION:
+                            if (!item.is_blocked)
+                                l_CurrentSlotType = LOOT_SLOT_TYPE_ALLOW_LOOT;
+                            else
+                                l_CurrentSlotType = LOOT_SLOT_TYPE_ROLL_ONGOING;
+                            break;
+                    }
+                }
+
+                data.WriteBit(!l_CurrentSlotType);
+                data.WriteBit(!(loot->items.size() + (qi - q_list->begin())));
+                data.WriteBits(1, 2);
+                data.WriteBit(0);
+                data.WriteBits(2, 3);
+            }
+        }
+    }
+    if (ffa_itr != lootPlayerFFAItems.end())
+    {
+        QuestItemList* ffa_list = ffa_itr->second;
+        for (QuestItemList::const_iterator fi = ffa_list->begin(); fi != ffa_list->end(); ++fi)
+        {
+            LootItem &item = loot->items[fi->index];
+            if (!fi->is_looted && !item.is_looted)
+            {
+                data.WriteBit(!slotType);
+                data.WriteBit(!fi->index);
+                data.WriteBits(1, 2);
+                data.WriteBit(0);
+                data.WriteBits(2, 3);
+            }
+        }
+    }
+    if (nn_itr != lootPlayerNonQuestNonFFAConditionalItems.end())
+    {
+        QuestItemList* conditional_list = nn_itr->second;
+        for (QuestItemList::const_iterator ci = conditional_list->begin(); ci != conditional_list->end(); ++ci)
+        {
+            LootItem &item = loot->items[ci->index];
+            if (!ci->is_looted && !item.is_looted)
+            {
+                LootSlotType l_CurrentSlotType = slotType;
+                if (item.follow_loot_rules)
+                {
+                    switch (permission)
+                    {
+                        case MASTER_PERMISSION:
+                            l_CurrentSlotType = LOOT_SLOT_TYPE_MASTER;
+                            break;
+                        case GROUP_PERMISSION:
+                        case ROUND_ROBIN_PERMISSION:
+                            if (!item.is_blocked)
+                                l_CurrentSlotType = LOOT_SLOT_TYPE_ALLOW_LOOT;
+                            else
+                                l_CurrentSlotType = LOOT_SLOT_TYPE_ROLL_ONGOING;
+                            break;
+                    }
+                }
+
+                data.WriteBit(!l_CurrentSlotType);
+                data.WriteBit(!ci->index);
+                data.WriteBits(1, 2);
+                data.WriteBit(0);
+                data.WriteBits(2, 3);
+            }
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+
+    data.WriteBit(l_LootObjectGuid[5]);
+    data.WriteBit(l_LootGuid[5]);
+
+    data.FlushBits();
+    
+    if (permission)
+        data << uint8(permission);
+
+    for (uint32 l_I = 0 ; l_I < l_CurrencyCount ; ++l_I)
+    {
+        data << uint8(0);
+        data << uint32(0);
+        data << uint32(0);
+    }
+
+    data.WriteByteSeq(l_LootObjectGuid[3]);
+
+    //////////////////////////////////////////////////////////////////////////
+
+    for (uint32 l_I = 0 ; l_I < loot->items.size() ; ++l_I)
+    {
+        if (l_AllowMap[l_I] == false)
+            continue;
+
+        if (l_I)
+            data << uint8(l_I);
+
+        data << uint32(loot->items[l_I].count);
+
+        if (l_SlotType[l_I])
+            data << uint8(l_SlotType[l_I]);
+
+        data << uint32(sObjectMgr->GetItemTemplate(loot->items[l_I].itemid)->DisplayInfoID);
+        data << uint32(loot->items[l_I].randomPropertyId);
+        data << uint32(loot->items[l_I].randomSuffix);
+        data << uint32(0); // data len
+        // data
+        data << uint32(loot->items[l_I].itemid);
+    }
+    if (q_itr != lootPlayerQuestItems.end())
+    {
+        QuestItemList* q_list = q_itr->second;
+        for (QuestItemList::const_iterator qi = q_list->begin(); qi != q_list->end(); ++qi)
+        {
+            LootItem &item = loot->quest_items[qi->index];
+            if (!qi->is_looted && !item.is_looted)
+            {
+                LootSlotType l_CurrentSlotType = slotType;
+                if (item.follow_loot_rules)
+                {
+                    switch (permission)
+                    {
+                        case MASTER_PERMISSION:
+                            l_CurrentSlotType = LOOT_SLOT_TYPE_MASTER;
+                            break;
+                        case GROUP_PERMISSION:
+                        case ROUND_ROBIN_PERMISSION:
+                            if (!item.is_blocked)
+                                l_CurrentSlotType = LOOT_SLOT_TYPE_ALLOW_LOOT;
+                            else
+                                l_CurrentSlotType = LOOT_SLOT_TYPE_ROLL_ONGOING;
+                            break;
+                    }
+                }
+
+
+                if (loot->items.size() + (qi - q_list->begin()))
+                    data << uint8(loot->items.size() + (qi - q_list->begin()));
+
+                data << uint32(item.count);
+
+                if (l_CurrentSlotType)
+                    data << uint8(l_CurrentSlotType);
+
+                data << uint32(sObjectMgr->GetItemTemplate(item.itemid)->DisplayInfoID);
+                data << uint32(item.randomPropertyId);
+                data << uint32(item.randomSuffix);
+                data << uint32(0); // data len
+                // data
+                data << uint32(item.itemid);
+            }
+        }
+    }
+    if (ffa_itr != lootPlayerFFAItems.end())
+    {
+        QuestItemList* ffa_list = ffa_itr->second;
+        for (QuestItemList::const_iterator fi = ffa_list->begin(); fi != ffa_list->end(); ++fi)
+        {
+            LootItem &item = loot->items[fi->index];
+            if (!fi->is_looted && !item.is_looted)
+            {
+                if (fi->index)
+                    data << uint8(fi->index);
+
+                data << uint32(item.count);
+
+                if (slotType)
+                    data << uint8(slotType);
+
+                data << uint32(sObjectMgr->GetItemTemplate(item.itemid)->DisplayInfoID);
+                data << uint32(item.randomPropertyId);
+                data << uint32(item.randomSuffix);
+                data << uint32(0); // data len
+                // data
+                data << uint32(item.itemid);
+            }
+        }
+    }
+    if (nn_itr != lootPlayerNonQuestNonFFAConditionalItems.end())
+    {
+        QuestItemList* conditional_list = nn_itr->second;
+        for (QuestItemList::const_iterator ci = conditional_list->begin(); ci != conditional_list->end(); ++ci)
+        {
+            LootItem &item = loot->items[ci->index];
+            if (!ci->is_looted && !item.is_looted)
+            {
+                LootSlotType l_CurrentSlotType = slotType;
+                if (item.follow_loot_rules)
+                {
+                    switch (permission)
+                    {
+                        case MASTER_PERMISSION:
+                            l_CurrentSlotType = LOOT_SLOT_TYPE_MASTER;
+                            break;
+                        case GROUP_PERMISSION:
+                        case ROUND_ROBIN_PERMISSION:
+                            if (!item.is_blocked)
+                                l_CurrentSlotType = LOOT_SLOT_TYPE_ALLOW_LOOT;
+                            else
+                                l_CurrentSlotType = LOOT_SLOT_TYPE_ROLL_ONGOING;
+                            break;
+                    }
+                }
+
+                if (ci->index)
+                    data << uint8(ci->index);
+
+                data << uint32(item.count);
+
+                if (l_CurrentSlotType)
+                    data << uint8(l_CurrentSlotType);
+
+                data << uint32(sObjectMgr->GetItemTemplate(item.itemid)->DisplayInfoID);
+                data << uint32(item.randomPropertyId);
+                data << uint32(item.randomSuffix);
+                data << uint32(0); // data len
+                // data
+                data << uint32(item.itemid);
+            }
+        }
+    }
+    
+    //////////////////////////////////////////////////////////////////////////
+
+    data.WriteByteSeq(l_LootObjectGuid[0]);
+
+    if (loot->gold)
+        data << uint32(loot->gold);
+
+    if (loot->loot_type)
+        data << uint8(loot->loot_type);
+
+    data.WriteByteSeq(l_LootGuid[5]);
+    data.WriteByteSeq(l_LootObjectGuid[7]);
+    data.WriteByteSeq(l_LootObjectGuid[6]);
+    data.WriteByteSeq(l_LootGuid[1]);
+
+    if (GetGroup())
+        data << uint8(GetGroup()->GetLootThreshold());
+
+    if (byte20)
+        data << uint8(0);
+
+    data.WriteByteSeq(l_LootGuid[0]);
+    data.WriteByteSeq(l_LootObjectGuid[2]);
+    data.WriteByteSeq(l_LootObjectGuid[5]);
+    data.WriteByteSeq(l_LootGuid[7]);
+    data.WriteByteSeq(l_LootGuid[3]);
+    data.WriteByteSeq(l_LootObjectGuid[1]);
+    data.WriteByteSeq(l_LootGuid[2]);
+    data.WriteByteSeq(l_LootObjectGuid[4]);
+    data.WriteByteSeq(l_LootGuid[4]);
+    data.WriteByteSeq(l_LootGuid[6]);
+
+    //data << uint64(guid);
+    //data << uint8(loot_type);
+    //data << LootView(*loot, this, permission);
 
     SendDirectMessage(&data);
 
@@ -9729,55 +10147,74 @@ void Player::SendLoot(uint64 guid, LootType loot_type)
         SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_LOOTING);
 }
 
-void Player::SendNotifyLootMoneyRemoved()
+void Player::SendNotifyLootMoneyRemoved(Loot * p_Loot)
 {
     WorldPacket data(SMSG_LOOT_CLEAR_MONEY);
-	ObjectGuid guid = this->GetLootGUID();
+	ObjectGuid l_Guid = p_Loot->Guid;
 
-	data.WriteBit(guid[3]);
-	data.WriteBit(guid[0]);
-	data.WriteBit(guid[7]);
-	data.WriteBit(guid[6]);
-	data.WriteBit(guid[1]);
-	data.WriteBit(guid[5]);
-	data.WriteBit(guid[4]);
-	data.WriteBit(guid[2]);
+    data.WriteBit(l_Guid[1]);
+    data.WriteBit(l_Guid[3]);
+    data.WriteBit(l_Guid[4]);
+    data.WriteBit(l_Guid[0]);
+    data.WriteBit(l_Guid[5]);
+    data.WriteBit(l_Guid[6]);
+    data.WriteBit(l_Guid[2]);
+    data.WriteBit(l_Guid[7]);
 
-	data.WriteByteSeq(guid[2]);
-	data.WriteByteSeq(guid[3]);
-	data.WriteByteSeq(guid[6]);
-	data.WriteByteSeq(guid[5]);
-	data.WriteByteSeq(guid[0]);
-	data.WriteByteSeq(guid[4]);
-	data.WriteByteSeq(guid[7]);
-	data.WriteByteSeq(guid[1]);
+    data.WriteByteSeq(l_Guid[1]);
+    data.WriteByteSeq(l_Guid[4]);
+    data.WriteByteSeq(l_Guid[0]);
+    data.WriteByteSeq(l_Guid[6]);
+    data.WriteByteSeq(l_Guid[3]);
+    data.WriteByteSeq(l_Guid[7]);
+    data.WriteByteSeq(l_Guid[5]);
+    data.WriteByteSeq(l_Guid[2]);
 
     GetSession()->SendPacket(&data);
 }
 
-void Player::SendNotifyLootItemRemoved(uint8 lootSlot, ObjectGuid guid)
+void Player::SendNotifyLootItemRemoved(uint8 lootSlot, uint64 p_LootedObject, uint64 p_LootGuid)
 {
     WorldPacket data(SMSG_LOOT_REMOVED, 1);
 
-    data.WriteBit(guid[5]);
-    data.WriteBit(guid[1]);
-	data.WriteBit(guid[3]);
-	data.WriteBit(guid[4]);
-	data.WriteBit(guid[0]);
-    data.WriteBit(guid[6]);
-	data.WriteBit(guid[2]);
-	data.WriteBit(guid[7]);
+    ObjectGuid l_LootedObject = p_LootedObject;
+    ObjectGuid l_LootGuid = p_LootGuid;
 
-	data.WriteByteSeq(guid[5]);
-	data.WriteByteSeq(guid[6]);
-	data.WriteByteSeq(guid[4]);
-	data << uint8(lootSlot);
-	data.WriteByteSeq(guid[0]);
-	data.WriteByteSeq(guid[3]);
-	data.WriteByteSeq(guid[2]);
-	data.WriteByteSeq(guid[7]);
-	data.WriteByteSeq(guid[1]);
-    
+    data.WriteBit(l_LootedObject[7]);
+    data.WriteBit(l_LootedObject[0]);
+    data.WriteBit(l_LootedObject[5]);
+    data.WriteBit(l_LootGuid[5]);
+    data.WriteBit(l_LootedObject[6]);
+    data.WriteBit(l_LootGuid[2]);
+    data.WriteBit(l_LootGuid[3]);
+    data.WriteBit(l_LootedObject[2]);
+    data.WriteBit(l_LootGuid[1]);
+    data.WriteBit(l_LootGuid[7]);
+    data.WriteBit(l_LootedObject[1]);
+    data.WriteBit(l_LootGuid[4]);
+    data.WriteBit(l_LootGuid[6]);
+    data.WriteBit(l_LootedObject[4]);
+    data.WriteBit(l_LootedObject[3]);
+    data.WriteBit(l_LootGuid[0]);
+
+    data.WriteByteSeq(l_LootedObject[5]);
+    data.WriteByteSeq(l_LootedObject[4]);
+    data.WriteByteSeq(l_LootGuid[6]);
+    data.WriteByteSeq(l_LootedObject[6]);
+    data.WriteByteSeq(l_LootedObject[7]);
+    data.WriteByteSeq(l_LootGuid[3]);
+    data.WriteByteSeq(l_LootGuid[0]);
+    data << uint8(lootSlot);
+    data.WriteByteSeq(l_LootedObject[3]);
+    data.WriteByteSeq(l_LootedObject[1]);
+    data.WriteByteSeq(l_LootGuid[5]);
+    data.WriteByteSeq(l_LootedObject[2]);
+    data.WriteByteSeq(l_LootGuid[2]);
+    data.WriteByteSeq(l_LootGuid[7]);
+    data.WriteByteSeq(l_LootGuid[1]);
+    data.WriteByteSeq(l_LootGuid[4]);
+    data.WriteByteSeq(l_LootedObject[0]);
+
     GetSession()->SendPacket(&data);
 
     sLog->outInfo(LOG_FILTER_NETWORKIO, "Sent SMSG_LOOT_REMOVED");
@@ -9786,9 +10223,10 @@ void Player::SendNotifyLootItemRemoved(uint8 lootSlot, ObjectGuid guid)
 void Player::SendUpdateWorldState(uint32 Field, uint32 Value)
 {
     WorldPacket data(SMSG_UPDATE_WORLD_STATE, 4+4+1);
-	data << uint8(0);
+	data << Value;
     data << Field;
-    data << Value;    
+    data.WriteBit(0);
+    data.FlushBits();
     GetSession()->SendPacket(&data);
 }
 
@@ -9803,21 +10241,21 @@ void Player::SendInitWorldStates(uint32 zoneid, uint32 areaid)
 
     sLog->outDebug(LOG_FILTER_NETWORKIO, "Sending SMSG_INIT_WORLD_STATES to Map: %u, Zone: %u", mapid, zoneid);
 
-    WorldPacket data(SMSG_INIT_WORLD_STATES, (4+4+4+2+(12*8)));
-    data << uint32(mapid);                                  // mapid
-    data << uint32(zoneid);                                 // zone id
+	WorldPacket data(SMSG_INIT_WORLD_STATES, (4+4+4+2+(12*8)));
     data << uint32(areaid);                                 // area id, new 2.1.0
+    data << uint32(zoneid);                                 // zone id
+    data << uint32(mapid);                                  // mapid
     size_t countPos = data.wpos();
-    data << uint16(0);                                      // count of uint64 blocks
+    data << uint32(0);                                      // count of uint64 blocks
     data << uint32(0x8d8) << uint32(0x0);                   // 1
     data << uint32(0x8d7) << uint32(0x0);                   // 2
     data << uint32(0x8d6) << uint32(0x0);                   // 3
     data << uint32(0x8d5) << uint32(0x0);                   // 4
     data << uint32(0x8d4) << uint32(0x0);                   // 5
     data << uint32(0x8d3) << uint32(0x0);                   // 6
-                                                            // 7 1 - Arena season in progress, 0 - end of season
+    // 7 1 - Arena season in progress, 0 - end of season
     data << uint32(0xC77) << uint32(sWorld->getBoolConfig(CONFIG_ARENA_SEASON_IN_PROGRESS));
-                                                            // 8 Arena season id
+    // 8 Arena season id
     data << uint32(0xF3D) << uint32(sWorld->getIntConfig(CONFIG_ARENA_SEASON_ID));
 
     if (mapid == 530)                                       // Outland
@@ -10434,7 +10872,25 @@ uint32 Player::GetXPRestBonus(uint32 xp)
 void Player::SetBindPoint(uint64 guid)
 {
     WorldPacket data(SMSG_BINDER_CONFIRM, 8);
-    data << uint64(guid);
+    ObjectGuid l_Guid = guid;
+    data.WriteBit(l_Guid[5]);
+    data.WriteBit(l_Guid[0]);
+    data.WriteBit(l_Guid[1]);
+    data.WriteBit(l_Guid[6]);
+    data.WriteBit(l_Guid[4]);
+    data.WriteBit(l_Guid[2]);
+    data.WriteBit(l_Guid[3]);
+    data.WriteBit(l_Guid[7]);
+
+    data.WriteByteSeq(l_Guid[6]);
+    data.WriteByteSeq(l_Guid[3]);
+    data.WriteByteSeq(l_Guid[7]);
+    data.WriteByteSeq(l_Guid[4]);
+    data.WriteByteSeq(l_Guid[5]);
+    data.WriteByteSeq(l_Guid[2]);
+    data.WriteByteSeq(l_Guid[0]);
+    data.WriteByteSeq(l_Guid[1]);
+
     GetSession()->SendPacket(&data);
 }
 
@@ -12773,15 +13229,14 @@ void Player::SetVisibleItemSlot(uint8 slot, Item* pItem)
 {
     if (pItem)
     {
-        SetUInt32Value(PLAYER_VISIBLE_ITEM_1_ENTRYID + (slot * 2), pItem->GetVisibleEntry());
-        SetUInt16Value(PLAYER_VISIBLE_ITEM_1_ENCHANTMENT + (slot * 2), 0, pItem->GetEnchantmentId(PERM_ENCHANTMENT_SLOT));
-        SetUInt16Value(PLAYER_VISIBLE_ITEM_1_ENCHANTMENT + (slot * 2), 1, pItem->GetEnchantmentId(TEMP_ENCHANTMENT_SLOT));
+        SetUInt32Value(PLAYER_VISIBLE_ITEM_1_ENTRYID + (slot * 2) + 0, pItem->GetVisibleEntry());
+        SetUInt16Value(PLAYER_VISIBLE_ITEM_1_ENTRYID + (slot * 2) + 1, 0, pItem->GetEnchantmentId(PERM_ENCHANTMENT_SLOT));
+        SetUInt16Value(PLAYER_VISIBLE_ITEM_1_ENTRYID + (slot * 2) + 1, 1, pItem->GetEnchantmentId(TEMP_ENCHANTMENT_SLOT));
     }
     else
     {
-        SetUInt32Value(PLAYER_VISIBLE_ITEM_1_ENTRYID + (slot * 2), 0);
-        SetUInt32Value(PLAYER_VISIBLE_ITEM_1_ENCHANTMENT + (slot * 2), 0);
-    }
+        SetUInt32Value(PLAYER_VISIBLE_ITEM_1_ENTRYID + (slot * 2), 0);        
+	}
 }
 
 void Player::VisualizeItem(uint8 slot, Item* pItem)
@@ -13803,7 +14258,7 @@ void Player::AddItemToBuyBackSlot(Item* pItem)
         uint32 etime = uint32(base - m_logintime + (30 * 3600));
         uint32 eslot = slot - BUYBACK_SLOT_START;
 
-        SetUInt64Value(PLAYER_FIELD_VENDORBUYBACK_SLOT_1 + (eslot * 2), pItem->GetGUID());
+        SetUInt64Value(PLAYER_FIELD_INV_SLOT_HEAD + (eslot * 2), pItem->GetGUID());
         if (ItemTemplate const* proto = pItem->GetTemplate())
             SetUInt32Value(PLAYER_FIELD_BUYBACK_PRICE_1 + eslot, proto->SellPrice * pItem->GetCount());
         else
@@ -13840,7 +14295,7 @@ void Player::RemoveItemFromBuyBackSlot(uint32 slot, bool del)
         m_items[slot] = NULL;
 
         uint32 eslot = slot - BUYBACK_SLOT_START;
-        SetUInt64Value(PLAYER_FIELD_VENDORBUYBACK_SLOT_1 + (eslot * 2), 0);
+        SetUInt64Value(PLAYER_FIELD_INV_SLOT_HEAD + (eslot * 2), 0);
         SetUInt32Value(PLAYER_FIELD_BUYBACK_PRICE_1 + eslot, 0);
         SetUInt32Value(PLAYER_FIELD_BUYBACK_TIMESTAMP_1 + eslot, 0);
 
@@ -13897,19 +14352,75 @@ void Player::SendBuyError(BuyResult msg, Creature* creature, uint32 item, uint32
 {
     sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: Sent SMSG_BUY_FAILED");
     WorldPacket data(SMSG_BUY_FAILED, (8+4+4+1));
-    data << uint64(creature ? creature->GetGUID() : 0);
+    ObjectGuid l_Guid = (creature ? creature->GetGUID() : 0);
+
+    data.WriteBit(l_Guid[7]);
+    data.WriteBit(l_Guid[5]);
+    data.WriteBit(l_Guid[4]);
+    data.WriteBit(l_Guid[2]);
+    data.WriteBit(l_Guid[6]);
+    data.WriteBit(l_Guid[0]);
+    data.WriteBit(l_Guid[3]);
+    data.WriteBit(l_Guid[1]);
+    data.FlushBits();
+
+    data.WriteByteSeq(l_Guid[7]);
+    data.WriteByteSeq(l_Guid[3]);
+    data.WriteByteSeq(l_Guid[4]);
     data << uint32(item);
     data << uint8(msg);
+    data.WriteByteSeq(l_Guid[5]);
+    data.WriteByteSeq(l_Guid[1]);
+    data.WriteByteSeq(l_Guid[6]);
+    data.WriteByteSeq(l_Guid[0]);
+    data.WriteByteSeq(l_Guid[2]);
+
     GetSession()->SendPacket(&data);
 }
 
 void Player::SendSellError(SellResult msg, Creature* creature, uint64 guid)
 {
     sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: Sent SMSG_SELL_ITEM");
-    WorldPacket data(SMSG_SELL_ITEM, (8+8+1));  // last check 4.3.4
-    data << uint64(creature ? creature->GetGUID() : 0);
-    data << uint64(guid);
+   WorldPacket data(SMSG_SELL_ITEM, (8+8+1));  // last check 4.3.4
+    ObjectGuid l_VendorGuid = (creature ? creature->GetGUID() : 0);
+    ObjectGuid l_ItemGuid = guid;
+
+    data.WriteBit(l_VendorGuid[6]);
+    data.WriteBit(l_VendorGuid[3]);
+    data.WriteBit(l_ItemGuid[3]);
+    data.WriteBit(l_ItemGuid[5]);
+    data.WriteBit(l_ItemGuid[2]);
+    data.WriteBit(l_VendorGuid[7]);
+    data.WriteBit(l_ItemGuid[0]);
+    data.WriteBit(l_ItemGuid[1]);
+    data.WriteBit(l_VendorGuid[5]);
+    data.WriteBit(l_ItemGuid[6]);
+    data.WriteBit(l_VendorGuid[4]);
+    data.WriteBit(l_ItemGuid[7]);
+    data.WriteBit(l_VendorGuid[0]);
+    data.WriteBit(l_VendorGuid[2]);
+    data.WriteBit(l_ItemGuid[4]);
+    data.WriteBit(l_VendorGuid[1]);
+
     data << uint8(msg);
+
+    data.WriteByteSeq(l_ItemGuid[6]);
+    data.WriteByteSeq(l_VendorGuid[3]);
+    data.WriteByteSeq(l_VendorGuid[4]);
+    data.WriteByteSeq(l_ItemGuid[7]);
+    data.WriteByteSeq(l_ItemGuid[4]);
+    data.WriteByteSeq(l_VendorGuid[0]);
+    data.WriteByteSeq(l_ItemGuid[2]);
+    data.WriteByteSeq(l_ItemGuid[1]);
+    data.WriteByteSeq(l_VendorGuid[1]);
+    data.WriteByteSeq(l_ItemGuid[0]);
+    data.WriteByteSeq(l_VendorGuid[7]);
+    data.WriteByteSeq(l_VendorGuid[2]);
+    data.WriteByteSeq(l_VendorGuid[6]);
+    data.WriteByteSeq(l_ItemGuid[3]);
+    data.WriteByteSeq(l_ItemGuid[5]);
+    data.WriteByteSeq(l_VendorGuid[5]);
+
     GetSession()->SendPacket(&data);
 }
 
@@ -14731,11 +15242,11 @@ void Player::ApplyEnchantment(Item* item, EnchantmentSlot slot, bool apply, bool
     }
 
     // visualize enchantment at player and equipped items
-    if (slot == PERM_ENCHANTMENT_SLOT)
-        SetUInt16Value(PLAYER_VISIBLE_ITEM_1_ENCHANTMENT + (item->GetSlot() * 2), 0, apply ? item->GetEnchantmentId(slot) : 0);
+    //if (slot == PERM_ENCHANTMENT_SLOT)
+    //    SetUInt16Value(PLAYER_VISIBLE_ITEM_1_ENCHANTMENT + (item->GetSlot() * 2), 0, apply ? item->GetEnchantmentId(slot) : 0);
 
-    if (slot == TEMP_ENCHANTMENT_SLOT)
-        SetUInt16Value(PLAYER_VISIBLE_ITEM_1_ENCHANTMENT + (item->GetSlot() * 2), 1, apply ? item->GetEnchantmentId(slot) : 0);
+    //if (slot == TEMP_ENCHANTMENT_SLOT)
+    //    SetUInt16Value(PLAYER_VISIBLE_ITEM_1_ENCHANTMENT + (item->GetSlot() * 2), 1, apply ? item->GetEnchantmentId(slot) : 0);
 
     if (apply_dur)
     {
@@ -17067,17 +17578,16 @@ void Player::SendQuestReward(Quest const* quest, uint32 XP)
 
     WorldPacket data(SMSG_QUESTGIVER_QUEST_COMPLETE, (4+4+4+4+4));
 
-	data << int32(0);								       // unk - maybe talents ?
-    data << int32(moneyReward);
+    data << uint32(xp);
+    data << uint32(questId);
+    data << uint32(moneyReward);
+    data << uint32(0); //quest->GetBonusTalents());              // bonus talents (not verified for 4.x)
+    data << uint32(0); //quest->GetRewardSkillPoints());         // 4.x bonus skill points
+    data << uint32(0); //quest->GetRewardSkillId());             // 4.x bonus skill id
 
-	data << int32(questId);
-    data << int32(xp);
-    
-	data << int32(quest->GetRewardSkillPoints());         // 4.x bonus skill points
-    data << int32(quest->GetRewardSkillId());             // 4.x bonus skill id
-
-    data.WriteBit(0);								       // if true EVENT_QUEST_FINISHED is fired, target cleared and gossip window is open
-	data.WriteBit(0);									   // unk
+    data.WriteBit(0);                                      // FIXME: unknown bits, common values sent
+    data.WriteBit(1);
+    data.FlushBits();
 
     GetSession()->SendPacket(&data);
 }
@@ -17157,15 +17667,32 @@ void Player::SendQuestUpdateAddCreatureOrGo(Quest const* quest, uint64 guid, uin
 
     WorldPacket data(SMSG_QUESTUPDATE_ADD_KILL, (4*4+8));
     sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: Sent SMSG_QUESTUPDATE_ADD_KILL");
-    data << uint32(quest->GetQuestId());
+    ObjectGuid Objectguid = uint64(guid);
+    data.WriteBit(Objectguid[7]);
+    data.WriteBit(Objectguid[3]);
+    data.WriteBit(Objectguid[6]);
+    data.WriteBit(Objectguid[5]);
+    data.WriteBit(Objectguid[0]);
+    data.WriteBit(Objectguid[1]);
+    data.WriteBit(Objectguid[4]);
+    data.WriteBit(Objectguid[2]);
+
+    data << uint16(quest->RequiredNpcOrGoCount[ creatureOrGO_idx ]);
+    data << uint8(0); //unk
+    data.WriteByteSeq(Objectguid[2]);
+    data.WriteByteSeq(Objectguid[6]);
+    data.WriteByteSeq(Objectguid[5]);
+
     data << uint32(entry);
+    data << uint32(quest->GetQuestId());
+
+    data.WriteByteSeq(Objectguid[3]);
+    data.WriteByteSeq(Objectguid[1]);
+    data.WriteByteSeq(Objectguid[4]);
+    data.WriteByteSeq(Objectguid[7]);
+    data.WriteByteSeq(Objectguid[0]);
+
     data << uint16(old_count + add_count);
-    data << uint32(quest->RequiredNpcOrGoCount[ creatureOrGO_idx ]);
-    data << uint64(guid);
-    data << uint8(0);
-
-	// data << uint32(quest->requirement Type); ...
-
     GetSession()->SendPacket(&data);
 
     uint16 log_slot = FindQuestSlot(quest->GetQuestId());
@@ -20327,8 +20854,8 @@ void Player::_SaveSkills(SQLTransaction& trans)
         uint16 field = itr->second.pos / 2;
         uint8 offset = itr->second.pos & 1;
 
-        uint16 value = GetUInt16Value(PLAYER_SKILL_RANK_0 + field, offset);
-        uint16 max = GetUInt16Value(PLAYER_SKILL_MAX_RANK_0 + field, offset);
+        uint16 value = GetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_RANK + field, offset);
+		uint16 max = GetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_MAX_RANK + field, offset);
 
         switch (itr->second.uState)
         {
@@ -20500,9 +21027,12 @@ bool Player::CanSpeak() const
 /***              LOW LEVEL FUNCTIONS:Notifiers        ***/
 /*********************************************************/
 
-void Player::SendAttackSwingNotInRange()
+void Player::SendAttackSwingNotInRange(AttackSwingError error)
 {
     WorldPacket data(SMSG_ATTACKSWING_NOTINRANGE, 0);
+
+    data.WriteBits(error, 2);
+    data.FlushBits();
     GetSession()->SendPacket(&data);
 }
 
@@ -20584,7 +21114,27 @@ void Player::SendAttackSwingBadFacingAttack()
 void Player::SendAutoRepeatCancel(Unit* target)
 {
     WorldPacket data(SMSG_CANCEL_AUTO_REPEAT, target->GetPackGUID().size());
-    data.append(target->GetPackGUID());                     // may be it's target guid
+    ObjectGuid l_Guid = target ? target->GetGUID() : 0;
+
+    data.WriteBit(l_Guid[3]);
+    data.WriteBit(l_Guid[7]);
+    data.WriteBit(l_Guid[2]);
+    data.WriteBit(l_Guid[5]);
+    data.WriteBit(l_Guid[4]);
+    data.WriteBit(l_Guid[1]);
+    data.WriteBit(l_Guid[0]);
+    data.WriteBit(l_Guid[6]);
+    data.FlushBits();
+
+    data.WriteByteSeq(l_Guid[4]);
+    data.WriteByteSeq(l_Guid[1]);
+    data.WriteByteSeq(l_Guid[0]);
+    data.WriteByteSeq(l_Guid[7]);
+    data.WriteByteSeq(l_Guid[2]);
+    data.WriteByteSeq(l_Guid[3]);
+    data.WriteByteSeq(l_Guid[6]);
+    data.WriteByteSeq(l_Guid[5]);
+
     GetSession()->SendPacket(&data);
 }
 
@@ -20598,24 +21148,16 @@ void Player::SendExplorationExperience(uint32 Area, uint32 Experience)
 
 void Player::SendDungeonDifficulty(bool IsInGroup)
 {
-    if (!IsInGroup) {
-        WorldPacket data(SMSG_SET_DUNGEON_DIFFICULTY, 4);
-        data << (uint32)GetDungeonDifficulty();
-        GetSession()->SendPacket(&data);
-    } else {
-        GetGroup()->SendUpdate();
-    }
+    WorldPacket data(SMSG_SET_DUNGEON_DIFFICULTY, 12);
+    data << (uint32)GetDungeonDifficulty();
+    GetSession()->SendPacket(&data);
 }
 
 void Player::SendRaidDifficulty(bool IsInGroup, int32 forcedDifficulty)
 {
-    if (!IsInGroup) {
-        WorldPacket data(SMSG_SET_RAID_DIFFICULTY, 4);
-        data << uint32(GetRaidDifficulty());
-        GetSession()->SendPacket(&data);
-    } else {
-        GetGroup()->SendUpdate();
-    }
+    WorldPacket data(SMSG_SET_RAID_DIFFICULTY, 12);
+    data << uint32(forcedDifficulty == -1 ? GetRaidDifficulty() : forcedDifficulty);
+    GetSession()->SendPacket(&data);
 }
 
 void Player::SendResetFailedNotify(uint32 mapid)
@@ -20877,17 +21419,9 @@ void Player::StopCastingCharm()
 
 inline void Player::BuildPlayerChat(WorldPacket* data, uint8 msgtype, const std::string& text, uint32 language, const char* addonPrefix /*= NULL*/) const
 {
-    *data << uint8(msgtype);
-    *data << int32(language);
-    *data << uint64(GetGUID());
-    *data << uint32(0);                                      // constant unknown time
-    if (addonPrefix)
-        *data << addonPrefix;
-    else
-        *data << uint64(GetGUID());
-    *data << uint32(text.length() + 1);
-    *data << text;
-    *data << uint16(GetChatTag());
+    ObjectGuid guid = GetGUID();
+
+    sChatBuilder->BuildChatPacket(data, guid, 0, 0, 0, text, "", "", GetChatTag(), language, msgtype, 0);
 }
 
 void Player::Say(const std::string& text, const uint32 language)
@@ -21437,7 +21971,7 @@ void Player::SetSpellModTakingSpell(Spell* spell, bool apply)
 void Player::SendProficiency(ItemClass itemClass, uint32 itemSubclassMask)
 {
     WorldPacket data(SMSG_SET_PROFICIENCY, 1 + 4);
-    data << uint8(itemClass) << uint32(itemSubclassMask);
+    data << uint32(itemSubclassMask) << uint8(itemClass);
     GetSession()->SendPacket(&data);
 }
 
@@ -22001,10 +22535,29 @@ inline bool Player::_StoreOrEquipNewItem(uint32 vendorslot, uint32 item, uint8 c
         uint32 new_count = pVendor->UpdateVendorItemCurrentCount(crItem, count);
 
         WorldPacket data(SMSG_BUY_ITEM, (8+4+4+4));
-        data << uint64(pVendor->GetGUID());
-        data << uint32(vendorslot + 1);                   // numbered from 1 at client
-        data << int32(crItem->maxcount > 0 ? new_count : 0xFFFFFFFF);
+        ObjectGuid l_Guid = pVendor->GetGUID();
+
+        data.WriteBit(l_Guid[6]);
+        data.WriteBit(l_Guid[0]);
+        data.WriteBit(l_Guid[5]);
+        data.WriteBit(l_Guid[2]);
+        data.WriteBit(l_Guid[4]);
+        data.WriteBit(l_Guid[1]);
+        data.WriteBit(l_Guid[7]);
+        data.WriteBit(l_Guid[3]);
+
+        data.WriteByteSeq(l_Guid[7]);
         data << uint32(count);
+        data.WriteByteSeq(l_Guid[6]);
+        data << uint32(vendorslot + 1);                   // numbered from 1 at client
+        data.WriteByteSeq(l_Guid[2]);
+        data.WriteByteSeq(l_Guid[0]);
+        data.WriteByteSeq(l_Guid[3]);
+        data << int32(crItem->maxcount > 0 ? new_count : 0xFFFFFFFF);
+        data.WriteByteSeq(l_Guid[5]);
+        data.WriteByteSeq(l_Guid[4]);
+        data.WriteByteSeq(l_Guid[1]);
+
         GetSession()->SendPacket(&data);
         SendNewItem(it, count, true, false, false);
 
@@ -22671,8 +23224,27 @@ void Player::SendCooldownEvent(SpellInfo const* spellInfo, uint32 itemId /*= 0*/
 
     // Send activate cooldown timer (possible 0) at client side
     WorldPacket data(SMSG_COOLDOWN_EVENT, 4 + 8);
+    ObjectGuid l_Guid = GetGUID();
+
+    data.WriteBit(l_Guid[5]);
+    data.WriteBit(l_Guid[1]);
+    data.WriteBit(l_Guid[4]);
+    data.WriteBit(l_Guid[2]);
+    data.WriteBit(l_Guid[3]);
+    data.WriteBit(l_Guid[0]);
+    data.WriteBit(l_Guid[6]);
+    data.WriteBit(l_Guid[7]);
+
+    data.WriteByteSeq(l_Guid[5]);
+    data.WriteByteSeq(l_Guid[2]);
+    data.WriteByteSeq(l_Guid[0]);
+    data.WriteByteSeq(l_Guid[6]);
+    data.WriteByteSeq(l_Guid[3]);
+    data.WriteByteSeq(l_Guid[1]);
+    data.WriteByteSeq(l_Guid[4]);
+    data.WriteByteSeq(l_Guid[7]);
     data << uint32(spellInfo->Id);
-    data << uint64(GetGUID());
+
     SendDirectMessage(&data);
 }
 
@@ -23129,13 +23701,29 @@ void Player::UpdateTriggerVisibility()
     {
         if (IS_CREATURE_GUID(*itr))
         {
-            Creature* obj = GetMap()->GetCreature(*itr);
-            if (!obj || !(obj->isTrigger() || obj->HasAuraType(SPELL_AURA_TRANSFORM)))  // can transform into triggers
+            Creature* creature = GetMap()->GetCreature(*itr);
+            // Update fields of triggers, transformed units or unselectable units (values dependent on GM state)
+            if (!creature || (!creature->isTrigger() && !creature->HasAuraType(SPELL_AURA_TRANSFORM) && !creature->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE)))
                 continue;
 
-            obj->BuildCreateUpdateBlockForPlayer(&udata, this);
+            creature->SetFieldNotifyFlag(1);
+            creature->BuildValuesUpdateBlockForPlayer(&udata, this);
+            creature->RemoveFieldNotifyFlag(1);
+        }
+        else if (IS_GAMEOBJECT_GUID((*itr)))
+        {
+            GameObject* go = GetMap()->GetGameObject(*itr);
+            if (!go)
+                continue;
+
+            go->SetFieldNotifyFlag(1);
+            go->BuildValuesUpdateBlockForPlayer(&udata, this);
+            go->RemoveFieldNotifyFlag(1);
         }
     }
+
+    if (!udata.HasData())
+        return;
 
     udata.BuildPacket(&packet);
     GetSession()->SendPacket(&packet);
@@ -23433,9 +24021,9 @@ void Player::SendInitialPacketsBeforeAddToMap()
 
     // Homebind
     WorldPacket data(SMSG_BINDPOINTUPDATE, 5*4);
-    data << m_homebindX << m_homebindY << m_homebindZ;
-    data << (uint32) m_homebindMapId;
-    data << (uint32) m_homebindAreaId;
+    data << m_homebindY << m_homebindX << m_homebindZ;
+    data << uint32(m_homebindAreaId);
+    data << uint32(m_homebindMapId);
     GetSession()->SendPacket(&data);
 
     // SMSG_SET_PROFICIENCY
@@ -23466,8 +24054,8 @@ void Player::SendInitialPacketsBeforeAddToMap()
     data.Initialize(SMSG_LOGIN_SETTIMESPEED, 4 + 4 + 4 + 4 + 4);
     data << float(0.01666667f);                             // game speed
     data.AppendPackedTime(sWorld->GetGameTime());
-    data << uint32(1);                                      // added in 3.1.2
-    data << uint32(1);                                      // added in 3.1.2
+    data << uint32(1);                                      // added in 3.1.2 or data << uint32(1);
+    data << uint32(1);                                      // added in 3.1.2 or data << uint32(1);
     data.AppendPackedTime(sWorld->GetGameTime());
     GetSession()->SendPacket(&data);
 
@@ -23829,15 +24417,154 @@ void Player::SendAurasForTarget(Unit* target)
     if (target->HasAuraType(SPELL_AURA_HOVER))
         target->SendMovementHover();
 
-    WorldPacket data(SMSG_AURA_UPDATE_ALL);
-    data.append(target->GetPackGUID());
+   Unit::VisibleAuraMap const* visibleAuras = target->GetVisibleAuras();
+    WorldPacket data(SMSG_AURA_UPDATE);
 
-    Unit::VisibleAuraMap const* visibleAuras = target->GetVisibleAuras();
+    ObjectGuid l_TargetGuid = target->GetGUID();
+
+    data.WriteBit(1);                           // all update
+    data.WriteBit(l_TargetGuid[6]);
+    data.WriteBit(l_TargetGuid[1]);
+    data.WriteBit(l_TargetGuid[0]);
+    data.WriteBits(visibleAuras->size(), 24);   // Count
+    data.WriteBit(l_TargetGuid[2]);
+    data.WriteBit(l_TargetGuid[4]);
+    data.WriteBit(target->ToPlayer() != 0);     // Has power info
+
+    // Has power info
+    if (target->ToPlayer())
+    {
+        data.WriteBit(l_TargetGuid[7]);
+        data.WriteBit(l_TargetGuid[0]);    
+        data.WriteBit(l_TargetGuid[6]);
+        data.WriteBits(1, 21);      // Power count
+        data.WriteBit(l_TargetGuid[3]);    
+        data.WriteBit(l_TargetGuid[1]);
+        data.WriteBit(l_TargetGuid[2]);    
+        data.WriteBit(l_TargetGuid[4]);
+        data.WriteBit(l_TargetGuid[5]);
+    }
+
+    data.WriteBit(l_TargetGuid[7]);
+    data.WriteBit(l_TargetGuid[3]);
+    data.WriteBit(l_TargetGuid[5]);
+
     for (Unit::VisibleAuraMap::const_iterator itr = visibleAuras->begin(); itr != visibleAuras->end(); ++itr)
     {
         AuraApplication * auraApp = itr->second;
-        auraApp->BuildUpdatePacket(data, false);
+        Aura * l_Aura = auraApp->GetBase();
+
+        uint32 l_Flags = auraApp->GetFlags();
+        if (l_Aura->GetMaxDuration() > 0 && !(l_Aura->GetSpellInfo()->AttributesEx5 & SPELL_ATTR5_HIDE_DURATION))
+            l_Flags |= AFLAG_DURATION;
+
+        if (data.WriteBit(1)) // Write "have aura"
+        {
+            uint16 l_EffectCount = 0;
+
+            if (l_Flags & AFLAG_ANY_EFFECT_AMOUNT_SENT)
+                for (uint32 l_I = 0; l_I < MAX_SPELL_EFFECTS; ++l_I)
+                    if (AuraEffect const* l_Eff = l_Aura->GetEffect(l_I))
+                        if (auraApp->HasEffect(l_I)) 
+                            l_EffectCount++;
+
+            data.WriteBit(l_Flags & AFLAG_DURATION);
+            data.WriteBits(l_EffectCount, 22);
+            data.WriteBit(!(l_Flags & AFLAG_CASTER));
+
+            if (!(l_Flags & AFLAG_CASTER))
+            {
+                ObjectGuid l_CasterGuid = l_Aura->GetCasterGUID();
+
+                data.WriteBit(l_CasterGuid[3]);
+                data.WriteBit(l_CasterGuid[0]);    
+                data.WriteBit(l_CasterGuid[2]);
+                data.WriteBit(l_CasterGuid[6]);    
+                data.WriteBit(l_CasterGuid[5]);
+                data.WriteBit(l_CasterGuid[7]);    
+                data.WriteBit(l_CasterGuid[4]);
+                data.WriteBit(l_CasterGuid[1]);
+            }
+
+            data.WriteBit(l_Flags & AFLAG_DURATION);
+            data.WriteBits(0, 22);
+        }
     }
+
+    data.FlushBits();
+
+    for (Unit::VisibleAuraMap::const_iterator itr = visibleAuras->begin(); itr != visibleAuras->end(); ++itr)
+    {
+        AuraApplication * auraApp = itr->second;
+        Aura * l_Aura = auraApp->GetBase();
+
+        uint32 l_Flags = auraApp->GetFlags();
+        if (l_Aura->GetMaxDuration() > 0 && !(l_Aura->GetSpellInfo()->AttributesEx5 & SPELL_ATTR5_HIDE_DURATION))
+            l_Flags |= AFLAG_DURATION;
+
+        if (l_Flags & AFLAG_DURATION)
+            data << uint32(l_Aura->GetMaxDuration());
+
+        if (!(l_Flags & AFLAG_CASTER))
+        {
+            ObjectGuid l_CasterGuid = l_Aura->GetCasterGUID();
+
+            data.WriteByteSeq(l_CasterGuid[0]);
+            data.WriteByteSeq(l_CasterGuid[7]);    
+            data.WriteByteSeq(l_CasterGuid[5]);
+            data.WriteByteSeq(l_CasterGuid[6]);    
+            data.WriteByteSeq(l_CasterGuid[1]);
+            data.WriteByteSeq(l_CasterGuid[3]);    
+            data.WriteByteSeq(l_CasterGuid[2]);
+            data.WriteByteSeq(l_CasterGuid[4]);
+        }
+
+        data << uint8(l_Flags);
+
+        if (l_Flags & AFLAG_ANY_EFFECT_AMOUNT_SENT)
+            for (uint32 l_I = 0; l_I < MAX_SPELL_EFFECTS; ++l_I)
+                if (AuraEffect const* l_Eff = l_Aura->GetEffect(l_I))
+                    if (auraApp->HasEffect(l_I)) 
+                        data << float(l_Eff->GetAmount());
+
+        data << uint32(l_Aura->GetId());
+
+        if (l_Flags & AFLAG_DURATION)
+            data << uint32(l_Aura->GetDuration());
+
+        data << uint8(l_Aura->GetSpellInfo()->StackAmount ? l_Aura->GetStackAmount() : l_Aura->GetCharges());
+        data << uint32(l_Aura->GetEffectMask());
+        data << uint16(l_Aura->GetCasterLevel());
+        data << uint8(auraApp->GetSlot());
+    }
+
+    if (target->ToPlayer()) // Has Power Data
+    {
+        data.WriteByteSeq(l_TargetGuid[7]);
+        data.WriteByteSeq(l_TargetGuid[4]);
+        data.WriteByteSeq(l_TargetGuid[5]);
+        data.WriteByteSeq(l_TargetGuid[1]);
+        data.WriteByteSeq(l_TargetGuid[6]);
+
+        data << uint32(target->GetPower(target->getPowerType()));
+        data << uint32(target->getPowerType());
+
+        data << uint32(target->GetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS + SPELL_SCHOOL_NORMAL)); // spell power
+        data << uint32(target->GetStat(STAT_STRENGTH));
+        data.WriteByteSeq(l_TargetGuid[3]);
+        data << uint32(target->GetHealth());
+        data.WriteByteSeq(l_TargetGuid[0]);
+        data.WriteByteSeq(l_TargetGuid[2]);
+    }
+
+    data.WriteByteSeq(l_TargetGuid[0]);
+    data.WriteByteSeq(l_TargetGuid[4]);
+    data.WriteByteSeq(l_TargetGuid[3]);
+    data.WriteByteSeq(l_TargetGuid[7]);
+    data.WriteByteSeq(l_TargetGuid[5]);
+    data.WriteByteSeq(l_TargetGuid[6]);
+    data.WriteByteSeq(l_TargetGuid[2]);
+    data.WriteByteSeq(l_TargetGuid[1]);
 
     GetSession()->SendPacket(&data);
 }
@@ -24640,6 +25367,8 @@ void Player::SendCorpseReclaimDelay(bool load)
 
     //! corpse reclaim delay 30 * 1000ms or longer at often deaths
     WorldPacket data(SMSG_CORPSE_RECLAIM_DELAY, 4);
+    data.WriteBit(0);
+    data.FlushBits();
     data << uint32(delay*IN_MILLISECONDS);
     GetSession()->SendPacket(&data);
 }
@@ -25272,7 +26001,7 @@ void Player::AutoStoreLoot(uint8 bag, uint8 slot, uint32 loot_id, LootStore cons
     }
 }
 
-void Player::StoreLootItem(uint8 lootSlot, Loot* loot, ObjectGuid guid)
+void Player::StoreLootItem(uint8 lootSlot, Loot* loot, uint64 lootedObject)
 {
     QuestItem* qitem = NULL;
     QuestItem* ffaitem = NULL;
@@ -25305,9 +26034,9 @@ void Player::StoreLootItem(uint8 lootSlot, Loot* loot, ObjectGuid guid)
             qitem->is_looted = true;
             //freeforall is 1 if everyone's supposed to get the quest item.
             if (item->freeforall || loot->GetPlayerQuestItems().size() == 1)
-                SendNotifyLootItemRemoved(lootSlot, guid);
+                SendNotifyLootItemRemoved(lootSlot, lootedObject, loot->Guid);
             else
-                loot->NotifyQuestItemRemoved(qitem->index);
+                loot->NotifyQuestItemRemoved(qitem->index, lootedObject);
         }
         else
         {
@@ -25315,14 +26044,14 @@ void Player::StoreLootItem(uint8 lootSlot, Loot* loot, ObjectGuid guid)
             {
                 //freeforall case, notify only one player of the removal
                 ffaitem->is_looted = true;
-                SendNotifyLootItemRemoved(lootSlot, guid);
+                SendNotifyLootItemRemoved(lootSlot, lootedObject, loot->Guid);
             }
             else
             {
                 //not freeforall, notify everyone
                 if (conditem)
                     conditem->is_looted = true;
-                loot->NotifyItemRemoved(lootSlot, guid);
+                loot->NotifyItemRemoved(lootSlot, lootedObject);
             }
         }
 
@@ -25444,11 +26173,12 @@ void Player::_LoadSkills(PreparedQueryResult result)
                     SetUInt32Value(PLAYER_PROFESSION_SKILL_LINE_1 + professionCount++, skill);
             }
 
-            SetUInt16Value(PLAYER_SKILL_STEP_0 + field, offset, step);
-            SetUInt16Value(PLAYER_SKILL_RANK_0 + field, offset, value);
-            SetUInt16Value(PLAYER_SKILL_MAX_RANK_0 + field, offset, max);
-            SetUInt16Value(PLAYER_SKILL_MODIFIER_0 + field, offset, 0);
-            SetUInt16Value(PLAYER_SKILL_TALENT_0 + field, offset, 0);
+            SetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_STEP + field, offset, step);
+            SetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_RANK + field, offset, value);
+            SetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_MAX_RANK + field, offset, max);
+            SetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_MODIFIER + field, offset, 0);
+            SetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_TALENT + field, offset, 0);
+            SetUInt16Value(PLAYER_SKILL_LINEID_0 + SKILL_OFFSET_UNK + field, offset, 0);
 
             mSkillStatus.insert(SkillStatusMap::value_type(skill, SkillStatusData(count, SKILL_UNCHANGED)));
 
@@ -26047,25 +26777,39 @@ void Player::BuildPetTalentsInfoData(WorldPacket* data)
 void Player::SendTalentsInfoData(bool /*pet*/)
 {
     WorldPacket data(SMSG_TALENTS_INFO, 1+1+GetSpecsCount()*(4+1+1*2+1+MAX_GLYPH_SLOT_INDEX*2));
-    data << uint8(GetSpecsCount());
-    data << uint8(GetActiveSpec());
+
+		data.WriteBits(GetSpecsCount(), 19);
+	
+	for (uint8 i = 0; i < GetSpecsCount(); ++i)
+		data.WriteBits(GetTalentMap(i)->size(), 23);
+
+		data.FlushBits();
+    
     for (uint8 i = 0; i < GetSpecsCount(); ++i)
     {
-        data << uint32(GetPrimaryTalentTree(i)); // current spec id from ChrSpecialization.dbc
-        data << uint8(GetTalentMap(i)->size());
+		for (uint8 j = 0; j < MAX_GLYPH_SLOT_INDEX; ++j)
+            data << uint16(GetGlyph(i, j));               // GlyphProperties.dbc
+			
 
-        for (PlayerTalentMap::iterator itr = GetTalentMap(i)->begin(); itr != GetTalentMap(i)->end(); ++itr)
+		for (PlayerTalentMap::iterator itr = GetTalentMap(i)->begin(); itr != GetTalentMap(i)->end(); ++itr)
             data << uint16(itr->first); // id from Talent.dbc
+
+			data << uint32(GetPrimaryTalentTree(i)); // current spec id from ChrSpecialization.dbc
+        //data << uint8(GetTalentMap(i)->size());
+
+        
         //for (uint8 j = 0; j < 6 && j < GetTalentMap()->size(); ++j)
 
-        data << uint8(MAX_GLYPH_SLOT_INDEX);           // glyphs count
-        for (uint8 j = 0; j < MAX_GLYPH_SLOT_INDEX; ++j)
-            data << uint16(GetGlyph(i, j));               // GlyphProperties.dbc
+        //data << uint8(MAX_GLYPH_SLOT_INDEX);           // glyphs count
+        
     }
     /*if (pet)
         BuildPetTalentsInfoData(&data);
     else
         BuildPlayerTalentsInfoData(&data);*/
+
+		data << uint8(GetActiveSpec());
+
     GetSession()->SendPacket(&data);
     SetUInt32Value(PLAYER_MAX_TALENT_TIERS, uint32(getLevel() / 15));
     SetUInt32Value(PLAYER_FIELD_CURRENT_SPEC_ID, GetPrimaryTalentTree(GetActiveSpec()));
@@ -26289,8 +27033,30 @@ void Player::RemoveAtLoginFlag(AtLoginFlags flags, bool persist /*= false*/)
 void Player::SendClearCooldown(uint32 spell_id, Unit* target)
 {
     WorldPacket data(SMSG_CLEAR_COOLDOWN, 4+8);
+    ObjectGuid l_Guid = target->GetGUID();
+
+    data.WriteBit(l_Guid[6]);
+    data.WriteBit(l_Guid[5]);
+    data.WriteBit(l_Guid[2]);
+    data.WriteBit(l_Guid[4]);
+    data.WriteBit(l_Guid[0]);
+    data.WriteBit(l_Guid[7]);
+    data.WriteBit(l_Guid[3]);
+    data.WriteBit(0);           // unk
+    data.WriteBit(l_Guid[1]);
+    data.FlushBits();
+
+    data.WriteByteSeq(l_Guid[5]);
+    data.WriteByteSeq(l_Guid[2]);
+    data.WriteByteSeq(l_Guid[6]);
+    data.WriteByteSeq(l_Guid[3]);
+    data.WriteByteSeq(l_Guid[1]);
+    data.WriteByteSeq(l_Guid[0]);
+    data.WriteByteSeq(l_Guid[4]);
+    data.WriteByteSeq(l_Guid[7]);
+
     data << uint32(spell_id);
-    data << uint64(target->GetGUID());
+
     SendDirectMessage(&data);
 }
 
@@ -26599,13 +27365,11 @@ void Player::ResetTimeSync()
 
 void Player::SendTimeSync()
 {
-    WorldPacket data(SMSG_TIME_SYNC_REQ, 4);
-    data << uint32(m_timeSyncCounter++);
-    GetSession()->SendPacket(&data);
+    m_timeSyncQueue.push(m_movementCounter++);
 
-    // Schedule next sync in 10 sec
-    m_timeSyncTimer = 10000;
-    m_timeSyncServer = getMSTime();
+    WorldPacket data(SMSG_TIME_SYNC_REQ, 4);
+    data << uint32(m_timeSyncQueue.back());
+    GetSession()->SendPacket(&data);
 }
 
 void Player::SetReputation(uint32 factionentry, uint32 value)
@@ -27062,57 +27826,6 @@ VoidStorageItem* Player::GetVoidStorageItem(uint64 id, uint8& slot) const
     return NULL;
 }
 
-void Player::SendMovementSetCanFly(bool apply)
-{
-    ObjectGuid guid = GetGUID();
-    WorldPacket data;
-    if (apply)
-    {
-        data.Initialize(SMSG_MOVE_SET_CAN_FLY, 1 + 8 + 4);
-        data << uint32(0);          //! movement counter
-        data.WriteBit(guid[4]);
-		data.WriteBit(guid[5]);
-        data.WriteBit(guid[0]);
-        data.WriteBit(guid[6]);
-        data.WriteBit(guid[2]);
-        data.WriteBit(guid[1]);
-        data.WriteBit(guid[3]);
-        data.WriteBit(guid[7]);
-
-        data.WriteByteSeq(guid[5]);
-        data.WriteByteSeq(guid[3]);
-        data.WriteByteSeq(guid[1]);
-        data.WriteByteSeq(guid[6]);
-        data.WriteByteSeq(guid[7]);
-        data.WriteByteSeq(guid[2]);
-        data.WriteByteSeq(guid[4]);
-        data.WriteByteSeq(guid[0]);
-    }
-    else
-    {
-        data.Initialize(SMSG_MOVE_UNSET_CAN_FLY, 1 + 8 + 4);
-        data << uint32(0);          //! movement counter
-        data.WriteBit(guid[1]);
-        data.WriteBit(guid[4]);
-        data.WriteBit(guid[6]);
-        data.WriteBit(guid[2]);
-        data.WriteBit(guid[5]);
-        data.WriteBit(guid[7]);
-        data.WriteBit(guid[0]);
-        data.WriteBit(guid[3]);
-
-        data.WriteByteSeq(guid[3]);
-        data.WriteByteSeq(guid[1]);
-        data.WriteByteSeq(guid[5]);
-        data.WriteByteSeq(guid[7]);
-        data.WriteByteSeq(guid[0]);
-        data.WriteByteSeq(guid[6]);
-        data.WriteByteSeq(guid[2]);
-        data.WriteByteSeq(guid[4]);
-    }
-    SendDirectMessage(&data);
-}
-
 void Player::SendMovementSetCanTransitionBetweenSwimAndFly(bool apply)
 {
     WorldPacket data(apply ?
@@ -27282,31 +27995,10 @@ void Player::SendMovementSetFeatherFall(bool apply)
 
 void Player::SendMovementSetCollisionHeight(float height)
 {
-    ObjectGuid guid = GetGUID();
-    WorldPacket data(SMSG_MOVE_SET_COLLISION_HEIGHT, 2 + 8 + 4 + 4);
-    data.WriteBits(0, 2);
-    data.WriteBit(guid[6]);
-    data.WriteBit(guid[1]);
-    data.WriteBit(guid[4]);
-    data.WriteBit(guid[7]);
-    data.WriteBit(guid[5]);
-    data.WriteBit(guid[2]);
-    data.WriteBit(guid[0]);
-    data.WriteBit(guid[3]);
-    data.FlushBits();
-
-    data.WriteByteSeq(guid[6]);
-    data.WriteByteSeq(guid[0]);
-    data.WriteByteSeq(guid[4]);
-    data.WriteByteSeq(guid[3]);
-    data.WriteByteSeq(guid[5]);
-    data << uint32(sWorld->GetGameTime());   // Packet counter
-    data.WriteByteSeq(guid[1]);
-    data.WriteByteSeq(guid[2]);
-    data.WriteByteSeq(guid[7]);
-    data << float(height);
-
-    SendDirectMessage(&data);
+    static MovementStatusElements const heightElement = MSEExtraFloat;
+    Movement::ExtraMovementStatusElement extra(&heightElement);
+    extra.Data.floatData = height;
+    Movement::PacketSender(this, NULL_OPCODE, SMSG_MOVE_SET_COLLISION_HEIGHT, SMSG_MOVE_UPDATE_COLLISION_HEIGHT, &extra).Send();
 }
 
 Guild* Player::GetGuild()
@@ -27431,6 +28123,307 @@ Pet* Player::SummonPet(uint32 entry, float x, float y, float z, float ang, PetTy
     return pet;
 }
 
+void Player::ReadMovementInfo(WorldPacket& data, MovementInfo* mi, Movement::ExtraMovementStatusElement* extras /*= NULL*/)
+{
+    if (GetTypeId() != TYPEID_PLAYER)
+        return;
+
+    bool hasMovementFlags = false;
+    bool hasMovementFlags2 = false;
+    bool hasTimestamp = false;
+    bool hasOrientation = false;
+    bool hasTransportData = false;
+    bool hasTransportTime2 = false;
+    bool hasTransportTime3 = false;
+    bool hasPitch = false;
+    bool hasFallData = false;
+    bool hasFallDirection = false;
+    bool hasSplineElevation = false;
+
+    MovementStatusElements const* sequence = GetMovementStatusElementsSequence(data.GetOpcode());
+    if (sequence == NULL)
+    {
+        sLog->outError(LOG_FILTER_NETWORKIO, "WorldSession::ReadMovementInfo: No movement sequence found for opcode 0x%04X", uint32(data.GetOpcode()));
+        return;
+    }
+
+    ObjectGuid guid;
+    ObjectGuid tguid;
+
+    uint32 l_MseCounter = 0;
+    bool l_HaveAlive = false;
+
+    for (; *sequence != MSEEnd; ++sequence)
+    {
+        MovementStatusElements const& element = *sequence;
+
+        switch (element)
+        {
+        case MSEHasGuidByte0:
+        case MSEHasGuidByte1:
+        case MSEHasGuidByte2:
+        case MSEHasGuidByte3:
+        case MSEHasGuidByte4:
+        case MSEHasGuidByte5:
+        case MSEHasGuidByte6:
+        case MSEHasGuidByte7:
+            guid[element - MSEHasGuidByte0] = data.ReadBit();
+            break;
+        case MSEHasTransportGuidByte0:
+        case MSEHasTransportGuidByte1:
+        case MSEHasTransportGuidByte2:
+        case MSEHasTransportGuidByte3:
+        case MSEHasTransportGuidByte4:
+        case MSEHasTransportGuidByte5:
+        case MSEHasTransportGuidByte6:
+        case MSEHasTransportGuidByte7:
+            if (hasTransportData)
+                tguid[element - MSEHasTransportGuidByte0] = data.ReadBit();
+            break;
+        case MSEGuidByte0:
+        case MSEGuidByte1:
+        case MSEGuidByte2:
+        case MSEGuidByte3:
+        case MSEGuidByte4:
+        case MSEGuidByte5:
+        case MSEGuidByte6:
+        case MSEGuidByte7:
+            data.ReadByteSeq(guid[element - MSEGuidByte0]);
+            break;
+        case MSETransportGuidByte0:
+        case MSETransportGuidByte1:
+        case MSETransportGuidByte2:
+        case MSETransportGuidByte3:
+        case MSETransportGuidByte4:
+        case MSETransportGuidByte5:
+        case MSETransportGuidByte6:
+        case MSETransportGuidByte7:
+            if (hasTransportData)
+                data.ReadByteSeq(tguid[element - MSETransportGuidByte0]);
+            break;
+        case MSEHasMovementFlags:
+            hasMovementFlags = !data.ReadBit();
+            break;
+        case MSEHasMovementFlags2:
+            hasMovementFlags2 = !data.ReadBit();
+            break;
+        case MSEHasTimestamp:
+            hasTimestamp = !data.ReadBit();
+            break;
+        case MSEHasOrientation:
+            hasOrientation = !data.ReadBit();
+            break;
+        case MSEHasTransportData:
+            hasTransportData = data.ReadBit();
+            break;
+        case MSEHasTransportTime2:
+            if (hasTransportData)
+                hasTransportTime2 = data.ReadBit();
+            break;
+        case MSEHasTransportTime3:
+            if (hasTransportData)
+                hasTransportTime3 = data.ReadBit();
+            break;
+        case MSEHasPitch:
+            hasPitch = !data.ReadBit();
+            break;
+        case MSEHasFallData:
+            hasFallData = data.ReadBit();
+            break;
+        case MSEHasFallDirection:
+            if (hasFallData)
+                hasFallDirection = data.ReadBit();
+            break;
+        case MSEHasSplineElevation:
+            hasSplineElevation = !data.ReadBit();
+            break;
+        case MSEHasSpline:
+            data.ReadBit();
+            break;
+        case MSEMovementFlags:
+            if (hasMovementFlags)
+                mi->flags = data.ReadBits(30);
+            break;
+        case MSEMovementFlags2:
+            if (hasMovementFlags2)
+                mi->flags2 = data.ReadBits(13);
+            break;
+        case MSECounter:
+            l_MseCounter = data.ReadBits(22);
+            break;
+        case MSEHasATime:
+            l_HaveAlive = !data.ReadBit();
+            break;
+        case MSETimestamp:
+            if (hasTimestamp)
+                data >> mi->time;
+            break;
+        case MSEPositionX:
+            data >> mi->pos.m_positionX;
+            break;
+        case MSEPositionY:
+            data >> mi->pos.m_positionY;
+            break;
+        case MSEPositionZ:
+            data >> mi->pos.m_positionZ;
+            break;
+        case MSEOrientation:
+            if (hasOrientation)
+                mi->pos.SetOrientation(data.read<float>());
+            break;
+        case MSETransportPositionX:
+            if (hasTransportData)
+                data >> mi->t_pos.m_positionX;
+            break;
+        case MSETransportPositionY:
+            if (hasTransportData)
+                data >> mi->t_pos.m_positionY;
+            break;
+        case MSETransportPositionZ:
+            if (hasTransportData)
+                data >> mi->t_pos.m_positionZ;
+            break;
+        case MSETransportOrientation:
+            if (hasTransportData)
+                mi->t_pos.SetOrientation(data.read<float>());
+            break;
+        case MSETransportSeat:
+            if (hasTransportData)
+                data >> mi->t_seat;
+            break;
+        case MSETransportTime:
+            if (hasTransportData)
+                data >> mi->t_time;
+            break;
+        case MSETransportTime2:
+            if (hasTransportData && hasTransportTime2)
+                data >> mi->t_time2;
+            break;
+        case MSETransportTime3:
+            if (hasTransportData && hasTransportTime3)
+                data >> mi->t_time3;
+            break;
+        case MSEPitch:
+            if (hasPitch)
+                mi->pitch = G3D::wrap(data.read<float>(), float(-M_PI), float(M_PI));
+            break;
+        case MSEFallTime:
+            if (hasFallData)
+                data >> mi->fallTime;
+            break;
+        case MSEFallVerticalSpeed:
+            if (hasFallData)
+                data >> mi->j_zspeed;
+            break;
+        case MSEFallCosAngle:
+            if (hasFallData && hasFallDirection)
+                data >> mi->j_cosAngle;
+            break;
+        case MSEFallSinAngle:
+            if (hasFallData && hasFallDirection)
+                data >> mi->j_sinAngle;
+            break;
+        case MSEFallHorizontalSpeed:
+            if (hasFallData && hasFallDirection)
+                data >> mi->j_xyspeed;
+            break;
+        case MSESplineElevation:
+            if (hasSplineElevation)
+                data >> mi->splineElevation;
+            break;
+        case MSECounterUint32:
+            for (size_t l_CounterIt = 0 ; l_CounterIt < l_MseCounter ; l_CounterIt++)
+                data.read_skip<uint32>();
+            break;
+        case MSEATime:
+            if (l_HaveAlive)
+                data.read_skip<uint32>();
+            break;
+        case MSEZeroBit:
+        case MSEOneBit:
+            data.ReadBit();
+            break;
+        case MSEExtraElement:
+            extras->ReadNextElement(data);
+            break;
+        case MSESkipUint32:
+            data.read_skip<uint32>();
+            break;
+        default:
+                ASSERT(false && "Incorrect sequence element detected at ReadMovementInfo");
+                break;
+        }
+    }
+
+    mi->guid = guid;
+    mi->t_guid = tguid;
+
+   if (hasTransportData && mi->pos.m_positionX != mi->t_pos.m_positionX)
+       if (GetTransport())
+           GetTransport()->UpdatePosition(mi);
+
+    //! Anti-cheat checks. Please keep them in seperate if () blocks to maintain a clear overview.
+    //! Might be subject to latency, so just remove improper flags.
+    #ifdef TRINITY_DEBUG
+    #define REMOVE_VIOLATING_FLAGS(check, maskToRemove) \
+    { \
+        if (check) \
+        { \
+            sLog->outDebug(LOG_FILTER_UNITS, "WorldSession::ReadMovementInfo: Violation of MovementFlags found (%s). " \
+                "MovementFlags: %u, MovementFlags2: %u for player GUID: %u. Mask %u will be removed.", \
+                STRINGIZE(check), mi->GetMovementFlags(), mi->GetExtraMovementFlags(), GetGUIDLow(), maskToRemove); \
+            mi->RemoveMovementFlag((maskToRemove)); \
+        } \
+    }
+    #else
+    #define REMOVE_VIOLATING_FLAGS(check, maskToRemove) \
+        if (check) \
+            mi->RemoveMovementFlag((maskToRemove));
+    #endif
+
+
+    /*! This must be a packet spoofing attempt. MOVEMENTFLAG_ROOT sent from the client is not valid
+        in conjunction with any of the moving movement flags such as MOVEMENTFLAG_FORWARD.
+        It will freeze clients that receive this player's movement info.
+    */
+   //With this, we can't detect cheaters
+    REMOVE_VIOLATING_FLAGS(mi->HasMovementFlag(MOVEMENTFLAG_ROOT),
+        MOVEMENTFLAG_ROOT);
+
+    //! Cannot hover without SPELL_AURA_HOVER
+    REMOVE_VIOLATING_FLAGS(mi->HasMovementFlag(MOVEMENTFLAG_HOVER) && !HasAuraType(SPELL_AURA_HOVER),
+        MOVEMENTFLAG_HOVER);
+
+    //! Cannot ascend and descend at the same time
+    REMOVE_VIOLATING_FLAGS(mi->HasMovementFlag(MOVEMENTFLAG_ASCENDING) && mi->HasMovementFlag(MOVEMENTFLAG_DESCENDING),
+        MOVEMENTFLAG_ASCENDING | MOVEMENTFLAG_DESCENDING);
+
+    //! Cannot move left and right at the same time
+    REMOVE_VIOLATING_FLAGS(mi->HasMovementFlag(MOVEMENTFLAG_LEFT) && mi->HasMovementFlag(MOVEMENTFLAG_RIGHT),
+        MOVEMENTFLAG_LEFT | MOVEMENTFLAG_RIGHT);
+
+    //! Cannot strafe left and right at the same time
+    REMOVE_VIOLATING_FLAGS(mi->HasMovementFlag(MOVEMENTFLAG_STRAFE_LEFT) && mi->HasMovementFlag(MOVEMENTFLAG_STRAFE_RIGHT),
+        MOVEMENTFLAG_STRAFE_LEFT | MOVEMENTFLAG_STRAFE_RIGHT);
+
+    //! Cannot pitch up and down at the same time
+    REMOVE_VIOLATING_FLAGS(mi->HasMovementFlag(MOVEMENTFLAG_PITCH_UP) && mi->HasMovementFlag(MOVEMENTFLAG_PITCH_DOWN),
+        MOVEMENTFLAG_PITCH_UP | MOVEMENTFLAG_PITCH_DOWN);
+
+    //! Cannot move forwards and backwards at the same time
+    REMOVE_VIOLATING_FLAGS(mi->HasMovementFlag(MOVEMENTFLAG_FORWARD) && mi->HasMovementFlag(MOVEMENTFLAG_BACKWARD),
+        MOVEMENTFLAG_FORWARD | MOVEMENTFLAG_BACKWARD);    
+
+    //! Cannot feather fall without SPELL_AURA_FEATHER_FALL
+    REMOVE_VIOLATING_FLAGS(mi->HasMovementFlag(MOVEMENTFLAG_FALLING_SLOW) && !HasAuraType(SPELL_AURA_FEATHER_FALL),
+        MOVEMENTFLAG_FALLING_SLOW);    
+
+    #undef REMOVE_VIOLATING_FLAGS
+
+	if (GetUInt32Value(UNIT_NPC_EMOTESTATE))
+        SetUInt32Value(UNIT_NPC_EMOTESTATE, 0);
+}
+
 void Player::ReportSpeedHack(float vitesse)
 {
     m_speedHackNbPositif++;
@@ -27478,5 +28471,14 @@ void Player::ReportWWHack()
             ChatHandler(NULL).SendGlobalGMSysMessage(ss.str().c_str());
             ResetWWHackReport();
         }
+    }
+}
+
+void Player::CheckSendNameData(uint64 p_Guid)
+{
+    if (IS_PLAYER_GUID(p_Guid) && std::find(m_NameDataSended.begin(), m_NameDataSended.end(), p_Guid) == m_NameDataSended.end())
+    {
+        GetSession()->SendNameQueryOpcode(p_Guid, realmID);
+        m_NameDataSended.push_back(p_Guid);
     }
 }

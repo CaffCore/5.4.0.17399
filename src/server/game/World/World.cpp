@@ -85,6 +85,7 @@
 #include "SpellLearn.h"
 #include "MasteryMgr.h"
 #include "SpyMgr.h"
+#include "ChatHandler.h"
 
 ACE_Atomic_Op<ACE_Thread_Mutex, bool> World::m_stopEvent = false;
 uint8 World::m_ExitCode = SHUTDOWN_EXIT_CODE;
@@ -2269,14 +2270,7 @@ namespace Trinity
                     uint32 lineLength = (line ? strlen(line) : 0) + 1;
 
                     data->Initialize(SMSG_MESSAGECHAT, 100);                // guess size
-                    *data << uint8(CHAT_MSG_SYSTEM);
-                    *data << uint32(LANG_UNIVERSAL);
-                    *data << uint64(0);
-                    *data << uint32(0);                                     // can be chat msg group or something
-                    *data << uint64(0);
-                    *data << uint32(lineLength);
-                    *data << line;
-                    *data << uint16(0);
+                    sChatBuilder->BuildChatPacket(data, 0, 0, 0, 0, line, "", "", 0, LANG_UNIVERSAL, CHAT_MSG_SYSTEM, 0);
 
                     data_list.push_back(data);
                 }
@@ -2748,7 +2742,7 @@ void World::SendAutoBroadcast()
     else if (abcenter == 1)
     {
         WorldPacket data(SMSG_NOTIFICATION, 2 + msg.length());
-        data.WriteBits(msg.length(), 13);
+        data.WriteBits(msg.length(), 12);
         data.FlushBits();
         data.WriteString(msg);
         sWorld->SendGlobalMessage(&data);
@@ -2759,7 +2753,7 @@ void World::SendAutoBroadcast()
         sWorld->SendWorldText(LANG_AUTO_BROADCAST, msg.c_str());
 
         WorldPacket data(SMSG_NOTIFICATION, 2 + msg.length());
-        data.WriteBits(msg.length(), 13);
+        data.WriteBits(msg.length(), 12);
         data.FlushBits();
         data.WriteString(msg);
         sWorld->SendGlobalMessage(&data);

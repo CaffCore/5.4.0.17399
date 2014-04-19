@@ -845,10 +845,11 @@ void BattlefieldWG::SendInitWorldStatesTo(Player* player)
 {
     WorldPacket data(SMSG_INIT_WORLD_STATES, (4 + 4 + 4 + 2 + (BuildingsInZone.size() * 8) + (WorkshopsList.size() * 8)));
 
-    data << uint32(m_MapId);
+    data << uint32(player->GetAreaId());
     data << uint32(m_ZoneId);
-    data << uint32(0);
-    data << uint16(10 + BuildingsInZone.size() + WorkshopsList.size()); // Number of fields
+    data << uint32(m_MapId);
+    data.WriteBits(10 + BuildingsInZone.size() + WorkshopsList.size(), 21); // Number of fields
+    data.FlushBits();
 
     FillInitialWorldStates(data);
 

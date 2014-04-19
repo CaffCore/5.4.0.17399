@@ -2150,15 +2150,15 @@ void WorldSession::HandleCharFactionOrRaceChange(WorldPacket& recvData)
                     race = RACE_PANDAREN_A;
                 }
                 break;
-            case CMSG_CHAR_FACTION_CHANGE:
-                if (oldTeam == TEAM_HORDE) {
-                    team = TEAM_ALLIANCE;
-                    race = RACE_PANDAREN_A;
-                } else {
-                    team = TEAM_HORDE;
-                    race = RACE_PANDAREN_H;
-                }
-                break;
+           // case CMSG_CHAR_FACTION_CHANGE:
+               // if (oldTeam == TEAM_HORDE) {
+              //      team = TEAM_ALLIANCE;
+              //      race = RACE_PANDAREN_A;
+              //  } else {
+              //      team = TEAM_HORDE;
+              //      race = RACE_PANDAREN_H;
+              //  }
+             //   break;
             }
         }
 
@@ -2665,6 +2665,9 @@ void WorldSession::HandleReorderCharacters(WorldPacket& recvData)
 
 void WorldSession::HandleOpeningCinematic(WorldPacket& /*recvData*/)
 {
+	//For some reason if this Opcode is added the Cinematic will 
+	//just keep instantly restarting over and over and over, so made opcode 0x0
+
     // Only players that has not yet gained any experience can use this
     if (_player->GetUInt32Value(PLAYER_XP))
         return;

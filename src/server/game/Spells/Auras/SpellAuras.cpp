@@ -181,6 +181,7 @@ void AuraApplication::_HandleEffect(uint8 effIndex, bool apply)
 void AuraApplication::BuildUpdatePacket(ByteBuffer& data, bool remove) const
 {
     data << uint8(_slot);
+
     if (remove)
     {
         ASSERT(!_target->GetVisibleAura(_slot));
@@ -195,7 +196,7 @@ void AuraApplication::BuildUpdatePacket(ByteBuffer& data, bool remove) const
     if (aura->GetMaxDuration() > 0 && !(aura->GetSpellInfo()->AttributesEx5 & SPELL_ATTR5_HIDE_DURATION))
         flags |= AFLAG_DURATION;
     data << uint8(flags);
-    data << uint32(_effctsMask);
+    //data << uint32(_effctsMask);
     data << uint16(aura->GetCasterLevel());
     // send stack amount for aura which could be stacked (never 0 - causes incorrect display) or charges
     // stack amount has priority over charges (checked on retail with spell 50262)
@@ -235,9 +236,162 @@ void AuraApplication::ClientUpdate(bool remove)
 {
     _needClientUpdate = false;
 
-    WorldPacket data(SMSG_AURA_UPDATE);
-    data.append(GetTarget()->GetPackGUID());
-    BuildUpdatePacket(data, remove);
+   WorldPacket data(SMSG_AURA_UPDATE);
+    
+    ObjectGuid l_TargetGuid = _target->GetGUID();
+
+    data.WriteBit(0);                           // not all update
+    data.WriteBit(l_TargetGuid[6]);
+    data.WriteBit(l_TargetGuid[1]);
+    data.WriteBit(l_TargetGuid[0]);
+    data.WriteBits(1, 24);                      // Count
+    data.WriteBit(l_TargetGuid[2]);
+    data.WriteBit(l_TargetGuid[4]);
+    data.WriteBit(_target->ToPlayer() != 0);    // Has power info
+
+    // Has power info
+    if (_target->ToPlayer())
+    {
+        data.WriteBit(l_TargetGuid[7]);
+        data.WriteBit(l_TargetGuid[0]);    
+        data.WriteBit(l_TargetGuid[6]);
+        data.WriteBits(1, 21);      // Power count
+        data.WriteBit(l_TargetGuid[3]);    
+        data.WriteBit(l_TargetGuid[1]);
+        data.WriteBit(l_TargetGuid[2]);    
+        data.WriteBit(l_TargetGuid[4]);
+        data.WriteBit(l_TargetGuid[5]);
+    }
+
+    data.WriteBit(l_TargetGuid[7]);
+    data.WriteBit(l_TargetGuid[3]);
+    data.WriteBit(l_TargetGuid[5]);
+
+    Aura const* l_Aura = GetBase();
+
+    uint32 l_Flags = _flags;
+    if (l_Aura->GetMaxDuration() > 0 && !(l_Aura->GetSpellInfo()->AttributesEx5 & SPELL_ATTR5_HIDE_DURATION))
+        l_Flags |= AFLAG_DURATION;
+
+    if (data.WriteBit(1)) // Write "have aura"
+    {
+        uint16 l_EffectCount = 0;
+
+        if (l_Flags & AFLAG_ANY_EFFECT_AMOUNT_SENT)
+            for (uint32 l_I = 0; l_I < MAX_SPELL_EFFECTS; ++l_I)
+                if (AuraEffect const* l_Eff = l_Aura->GetEffect(l_I))
+                    if (HasEffect(l_I)) 
+                        l_EffectCount++;
+
+        if (!remove)
+        {
+            data.WriteBit(l_Flags & AFLAG_DURATION);
+            data.WriteBits(l_EffectCount, 22);
+            data.WriteBit(!(l_Flags & AFLAG_CASTER));
+
+            if (!(l_Flags & AFLAG_CASTER))
+            {
+                ObjectGuid l_CasterGuid = l_Aura->GetCasterGUID();
+
+                data.WriteBit(l_CasterGuid[3]);
+                data.WriteBit(l_CasterGuid[0]);    
+                data.WriteBit(l_CasterGuid[2]);
+                data.WriteBit(l_CasterGuid[6]);    
+                data.WriteBit(l_CasterGuid[5]);
+                data.WriteBit(l_CasterGuid[7]);    
+                data.WriteBit(l_CasterGuid[4]);
+                data.WriteBit(l_CasterGuid[1]);
+            }
+
+            data.WriteBit(l_Flags & AFLAG_DURATION);
+            data.WriteBits(0, 22);
+        }
+        else
+        {
+            data.WriteBit(0);
+            data.WriteBits(0, 22);
+            data.WriteBit(0);
+            data.WriteBit(0);
+            data.WriteBits(0, 22);
+        }
+    }
+
+    data.FlushBits();
+
+    if (!remove)
+    {
+        if (l_Flags & AFLAG_DURATION)
+            data << uint32(l_Aura->GetMaxDuration());
+
+        if (!(l_Flags & AFLAG_CASTER))
+        {
+            ObjectGuid l_CasterGuid = l_Aura->GetCasterGUID();
+
+            data.WriteByteSeq(l_CasterGuid[0]);
+            data.WriteByteSeq(l_CasterGuid[7]);    
+            data.WriteByteSeq(l_CasterGuid[5]);
+            data.WriteByteSeq(l_CasterGuid[6]);    
+            data.WriteByteSeq(l_CasterGuid[1]);
+            data.WriteByteSeq(l_CasterGuid[3]);    
+            data.WriteByteSeq(l_CasterGuid[2]);
+            data.WriteByteSeq(l_CasterGuid[4]);
+        }
+
+        data << uint8(l_Flags);
+
+        if (l_Flags & AFLAG_ANY_EFFECT_AMOUNT_SENT)
+            for (uint32 l_I = 0; l_I < MAX_SPELL_EFFECTS; ++l_I)
+                if (AuraEffect const* l_Eff = l_Aura->GetEffect(l_I))
+                    if (HasEffect(l_I)) 
+                        data << float(l_Eff->GetAmount());
+
+        data << uint32(l_Aura->GetId());
+
+        if (l_Flags & AFLAG_DURATION)
+            data << uint32(l_Aura->GetDuration());
+
+        data << uint8(l_Aura->GetSpellInfo()->StackAmount ? l_Aura->GetStackAmount() : l_Aura->GetCharges());
+        data << uint32(l_Aura->GetEffectMask());
+        data << uint16(l_Aura->GetCasterLevel());
+        data << uint8(_slot);
+    }
+    else
+    {
+        data << uint8(0);
+        data << uint32(0);
+        data << uint8(0);
+        data << uint32(0);
+        data << uint16(0);
+        data << uint8(_slot);
+    }
+
+    if (_target->ToPlayer()) // Has Power Data
+    {
+        data.WriteByteSeq(l_TargetGuid[7]);
+        data.WriteByteSeq(l_TargetGuid[4]);
+        data.WriteByteSeq(l_TargetGuid[5]);
+        data.WriteByteSeq(l_TargetGuid[1]);
+        data.WriteByteSeq(l_TargetGuid[6]);
+
+        data << uint32(_target->GetPower(_target->getPowerType()));
+        data << uint32(_target->getPowerType());
+
+        data << uint32(_target->GetUInt32Value(PLAYER_FIELD_MOD_DAMAGE_DONE_POS + SPELL_SCHOOL_NORMAL)); // spell power
+        data << uint32(_target->GetStat(STAT_STRENGTH));
+        data.WriteByteSeq(l_TargetGuid[3]);
+        data << uint32(_target->GetHealth());
+        data.WriteByteSeq(l_TargetGuid[0]);
+        data.WriteByteSeq(l_TargetGuid[2]);
+    }
+
+    data.WriteByteSeq(l_TargetGuid[0]);
+    data.WriteByteSeq(l_TargetGuid[4]);
+    data.WriteByteSeq(l_TargetGuid[3]);
+    data.WriteByteSeq(l_TargetGuid[7]);
+    data.WriteByteSeq(l_TargetGuid[5]);
+    data.WriteByteSeq(l_TargetGuid[6]);
+    data.WriteByteSeq(l_TargetGuid[2]);
+    data.WriteByteSeq(l_TargetGuid[1]);
 
     _target->SendMessageToSet(&data, true);
 }

@@ -22,6 +22,7 @@
 #include "Player.h"
 #include "Log.h"
 #include "ObjectAccessor.h"
+#include "MovementStructures.h"
 
 void WorldSession::HandleDismissControlledVehicle(WorldPacket &recvData)
 {
@@ -29,11 +30,11 @@ void WorldSession::HandleDismissControlledVehicle(WorldPacket &recvData)
 
     uint64 vehicleGUID = _player->GetCharmGUID();
 
-    if (!vehicleGUID)                                       // something wrong here...
-    {
-        recvData.rfinish();                                // prevent warnings spam
-        return;
-    }
+    //if (!vehicleGUID)                                       // something wrong here...
+    //{
+    //    recvData.rfinish();                                // prevent warnings spam
+    //    return;
+    //}
 
     MovementInfo mi;
     _player->ReadMovementInfo(recvData, &mi);
@@ -65,28 +66,44 @@ void WorldSession::HandleChangeSeatsOnControlledVehicle(WorldPacket& recvData)
 
     switch (recvData.GetOpcode())
     {
-        case CMSG_REQUEST_VEHICLE_PREV_SEAT:
+       case CMSG_REQUEST_VEHICLE_PREV_SEAT:
             GetPlayer()->ChangeSeat(-1, false);
             break;
-        case CMSG_REQUEST_VEHICLE_NEXT_SEAT:
-            GetPlayer()->ChangeSeat(-1, true);
-            break;
-        /*case CMSG_CHANGE_SEATS_ON_CONTROLLED_VEHICLE:
+        /*case CMSG_REQUEST_VEHICLE_NEXT_SEAT:              /////////////////////////////////////////////////
+            GetPlayer()->ChangeSeat(-1, true);              ///             Add All This Later            ///
+            break;                                          /////////////////////////////////////////////////
+        case CMSG_CHANGE_SEATS_ON_CONTROLLED_VEHICLE:
         {
-            uint64 guid;        // current vehicle guid
-            recvData.readPackGUID(guid);
+            static MovementStatusElements const accessoryGuid[] =
+            {
+                MSEExtraInt8,
+                MSEHasGuidByte2,
+                MSEHasGuidByte4,
+                MSEHasGuidByte7,
+                MSEHasGuidByte6,
+                MSEHasGuidByte5,
+                MSEHasGuidByte0,
+                MSEHasGuidByte1,
+                MSEHasGuidByte3,
+                MSEGuidByte6,
+                MSEGuidByte1,
+                MSEGuidByte2,
+                MSEGuidByte5,
+                MSEGuidByte3,
+                MSEGuidByte0,
+                MSEGuidByte4,
+                MSEGuidByte7,
+            };
 
+            Movement::ExtraMovementStatusElement extra(accessoryGuid);
             MovementInfo movementInfo;
-            ReadMovementInfo(recvData, &movementInfo);
+            GetPlayer()->ReadMovementInfo(recvData, &movementInfo, &extra);
             vehicle_base->m_movementInfo = movementInfo;
 
-            uint64 accessory;        //  accessory guid
-            recvData.readPackGUID(accessory);
+            uint64 accessory = extra.Data.guid;
+            int8 seatId = extra.Data.byteData;
 
-            int8 seatId;
-            recvData >> seatId;
-
-            if (vehicle_base->GetGUID() != guid)
+            if (vehicle_base->GetGUID() != movementInfo.guid)
                 return;
 
             if (!accessory)
@@ -98,7 +115,7 @@ void WorldSession::HandleChangeSeatsOnControlledVehicle(WorldPacket& recvData)
                         vehUnit->HandleSpellClick(GetPlayer(), seatId);
             }
             break;
-        }*/
+        }
         case CMSG_REQUEST_VEHICLE_SWITCH_SEAT:
         {
             uint64 guid;        // current vehicle guid
@@ -114,7 +131,7 @@ void WorldSession::HandleChangeSeatsOnControlledVehicle(WorldPacket& recvData)
                     if (vehicle->HasEmptySeat(seatId))
                         vehUnit->HandleSpellClick(GetPlayer(), seatId);
             break;
-        }
+        }*/
         default:
             break;
     }

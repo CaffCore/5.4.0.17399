@@ -154,6 +154,12 @@ void PlayerSocial::SendSocialList(Player* player)
     if (!player)
         return;
 
+	for (PlayerSocialMap::iterator itr = m_playerSocialMap.begin(); itr != m_playerSocialMap.end(); ++itr)
+    {
+        if (itr->first != player->GetGUID())
+            player->CheckSendNameData(itr->first);
+    }
+
     uint32 size = m_playerSocialMap.size();
 
     WorldPacket data(SMSG_CONTACT_LIST, (4+4+size*25));     // just can guess size
@@ -165,6 +171,8 @@ void PlayerSocial::SendSocialList(Player* player)
         sSocialMgr->GetFriendInfo(player, itr->first, itr->second);
 
         data << uint64(itr->first);                         // player guid
+        data << uint32(0);                                  // unk
+        data << uint32(0);                                  // unk
         data << uint32(itr->second.Flags);                  // player flag (0x1 = Friend, 0x2 = Ignored, 0x4 = Muted)
         data << itr->second.Note;                           // string note
         if (itr->second.Flags & SOCIAL_FLAG_FRIEND)         // if IsFriend()
@@ -258,6 +266,8 @@ void SocialMgr::MakeFriendStatusPacket(FriendsResult result, uint32 guid, WorldP
 void SocialMgr::SendFriendStatus(Player* player, FriendsResult result, uint32 friendGuid, bool broadcast)
 {
     FriendInfo fi;
+
+	player->CheckSendNameData(friendGuid);
 
     WorldPacket data;
     MakeFriendStatusPacket(result, friendGuid, &data);

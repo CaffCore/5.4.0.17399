@@ -157,7 +157,9 @@ public:
         str += args;
 
         WorldPacket data(SMSG_NOTIFICATION, (str.size()+1));
-        data << str;
+        data.WriteBits(str.length(), 12);
+        data.FlushBits();
+        data.WriteString(str);
         sWorld->SendGlobalMessage(&data);
 
         return true;
@@ -172,8 +174,10 @@ public:
         str += args;
 
         WorldPacket data(SMSG_NOTIFICATION, (str.size()+1));
-        data << str;
-        sWorld->SendGlobalGMMessage(&data);
+        data.WriteBits(str.length(), 12);
+        data.FlushBits();
+        data.WriteString(str);
+        sWorld->SendGlobalMessage(&data);
 
         return true;
     }

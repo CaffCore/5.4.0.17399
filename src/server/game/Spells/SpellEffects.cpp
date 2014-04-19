@@ -6107,7 +6107,7 @@ void Spell::SummonGuardian(uint32 i, uint32 entry, SummonPropertiesEntry const* 
 
         if (summon->GetEntry() == 27893)
         {
-            if (uint32 weapon = m_caster->GetUInt32Value(PLAYER_VISIBLE_ITEM_16_ENTRYID))
+            if (uint32 weapon = m_caster->GetUInt32Value(PLAYER_VISIBLE_ITEM_1_ENTRYID))
             {
                 summon->SetDisplayId(11686);
                 summon->SetUInt32Value(UNIT_VIRTUAL_ITEM_SLOT_ID, weapon);
@@ -6343,20 +6343,46 @@ void Spell::EffectBind(SpellEffIndex effIndex)
 
     // binding
     WorldPacket data(SMSG_BINDPOINTUPDATE, (4+4+4+4+4));
+	data << float(homeLoc.GetPositionY());
     data << float(homeLoc.GetPositionX());
-    data << float(homeLoc.GetPositionY());
     data << float(homeLoc.GetPositionZ());
     data << uint32(homeLoc.GetMapId());
     data << uint32(areaId);
     player->SendDirectMessage(&data);
+
+   /* data << float(homeLoc.m_positionY);
+    data << float(homeLoc.m_positionX);
+    data << float(homeLoc.m_positionZ);
+    data << uint32(areaId);
+    data << uint32(homeLoc.m_mapId);
+    player->SendDirectMessage(&data);*/
 
     sLog->outDebug(LOG_FILTER_SPELLS_AURAS, "EffectBind: New homebind X: %f, Y: %f, Z: %f, MapId: %u, AreaId: %u",
         homeLoc.GetPositionX(), homeLoc.GetPositionY(), homeLoc.GetPositionZ(), homeLoc.GetMapId(), areaId);
 
     // zone update
     data.Initialize(SMSG_PLAYERBOUND, 8+4);
-    data << uint64(player->GetGUID());
+    ObjectGuid l_Guid = m_caster->GetGUID();
+
+    data.WriteBit(l_Guid[0]);
+    data.WriteBit(l_Guid[7]);
+    data.WriteBit(l_Guid[2]);
+    data.WriteBit(l_Guid[4]);
+    data.WriteBit(l_Guid[5]);
+    data.WriteBit(l_Guid[3]);
+    data.WriteBit(l_Guid[1]);
+    data.WriteBit(l_Guid[6]);
+
     data << uint32(areaId);
+    data.WriteByteSeq(l_Guid[7]);
+    data.WriteByteSeq(l_Guid[5]);
+    data.WriteByteSeq(l_Guid[3]);
+    data.WriteByteSeq(l_Guid[0]);
+    data.WriteByteSeq(l_Guid[4]);
+    data.WriteByteSeq(l_Guid[1]);
+    data.WriteByteSeq(l_Guid[6]);
+    data.WriteByteSeq(l_Guid[2]);
+
     player->SendDirectMessage(&data);
 }
 
