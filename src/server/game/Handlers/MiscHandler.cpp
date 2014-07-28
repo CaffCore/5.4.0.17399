@@ -1394,6 +1394,8 @@ void WorldSession::HandleSetActionBarToggles(WorldPacket& recvData)
 
     recvData >> actionBar;
 
+	sLog->outError(LOG_FILTER_NETWORKIO, "WorldSession::HandleSetActionBarToggles state value: %u, ignored", uint32(actionBar));
+
     if (!GetPlayer())                                        // ignore until not logged (check needed because STATUS_AUTHED)
     {
         if (actionBar != 0)

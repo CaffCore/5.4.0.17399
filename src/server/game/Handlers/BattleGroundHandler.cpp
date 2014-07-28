@@ -72,33 +72,38 @@ void WorldSession::SendBattleGroundList(uint64 guid, BattlegroundTypeId bgTypeId
 
 void WorldSession::HandleBattlemasterJoinOpcode(WorldPacket& recvData)
 {
-    uint32 bgTypeId_;
-    uint32 instanceId, unk1, unk2;
+    uint32 bgTypeId_ = 0;
+    uint32 instanceId = 0;
     uint8 asGroup;
     bool isPremade = false;
     Group* grp = NULL;
     ObjectGuid guid;
 
-    recvData >> instanceId >> unk1 >> unk2;
-
-    asGroup = recvData.ReadBit();
+    recvData >> instanceId;                                 // battleground type id (DBC id)
+    recvData.read_skip<uint32>();
+    recvData.read_skip<uint32>();
+    
+    guid[2] = recvData.ReadBit();
     guid[5] = recvData.ReadBit();
+    guid[3] = recvData.ReadBit();
+    guid[7] = recvData.ReadBit();
     guid[6] = recvData.ReadBit();
     guid[0] = recvData.ReadBit();
-    guid[4] = recvData.ReadBit();
     guid[1] = recvData.ReadBit();
-    guid[7] = recvData.ReadBit();
-    guid[3] = recvData.ReadBit();
-    guid[2] = recvData.ReadBit();
+    guid[4] = recvData.ReadBit();
 
+	asGroup = recvData.ReadBit();
+
+	recvData.FlushBits();
+
+    recvData.ReadByteSeq(guid[6]);
+    recvData.ReadByteSeq(guid[1]);
     recvData.ReadByteSeq(guid[3]);
-    recvData.ReadByteSeq(guid[4]);
-    recvData.ReadByteSeq(guid[2]);
+    recvData.ReadByteSeq(guid[5]);
     recvData.ReadByteSeq(guid[7]);
     recvData.ReadByteSeq(guid[0]);
-    recvData.ReadByteSeq(guid[5]);
-    recvData.ReadByteSeq(guid[1]);
-    recvData.ReadByteSeq(guid[6]);
+    recvData.ReadByteSeq(guid[4]);
+    recvData.ReadByteSeq(guid[2]);
 
     //extract from guid
     bgTypeId_ = GUID_LOPART(guid);
@@ -282,6 +287,11 @@ void WorldSession::HandleBattlegroundPlayerPositionsOpcode(WorldPacket& /*recvDa
     if (!bg)                                                 // can't be received if player not in battleground
         return;
 
+	uint32 acount = 0;
+    uint32 hcount = 0;
+    Player* aplr = NULL;
+    Player* hplr = NULL;
+
     std::list<Player*> playersToSend;
 
     if (uint64 guid = bg->GetFlagPickerGUID(TEAM_ALLIANCE))
@@ -296,42 +306,65 @@ void WorldSession::HandleBattlegroundPlayerPositionsOpcode(WorldPacket& /*recvDa
         if(player) playersToSend.push_back(player);
     }
 
+    ObjectGuid aguid = aplr ? aplr->GetGUID() : 0;
+    ObjectGuid hguid = hplr ? hplr->GetGUID() : 0;
+
     WorldPacket data(SMSG_BATTLEFIELD_PLAYER_POSITIONS);
 
-    data.WriteBits(playersToSend.size(), 22);
-    for (std::list<Player*>::iterator itr = playersToSend.begin() ; itr != playersToSend.end() ; itr++)
+    data.WriteBits(acount, 22);
+    for (uint8 i = 0; i < acount; i++)
     {
-        ObjectGuid guid = (*itr)->GetGUID();
-
-        data.WriteBit(guid[3]);
-        data.WriteBit(guid[4]);
-        data.WriteBit(guid[1]);
-        data.WriteBit(guid[2]);
-        data.WriteBit(guid[7]);
-        data.WriteBit(guid[6]);
-        data.WriteBit(guid[5]);
-        data.WriteBit(guid[0]);
+        data.WriteBit(aguid[3]);
+        data.WriteBit(aguid[5]);
+        data.WriteBit(aguid[1]);
+        data.WriteBit(aguid[6]);
+        data.WriteBit(aguid[7]);
+        data.WriteBit(aguid[0]);
+        data.WriteBit(aguid[2]);
+        data.WriteBit(aguid[4]);
     }
+
+    data.WriteBits(hcount, 22);
+    for (uint8 i = 0; i < hcount; i++)
+    {
+        data.WriteBit(hguid[6]);
+        data.WriteBit(hguid[5]);
+        data.WriteBit(hguid[4]);
+        data.WriteBit(hguid[7]);
+        data.WriteBit(hguid[2]);
+        data.WriteBit(hguid[1]);
+        data.WriteBit(hguid[0]);
+        data.WriteBit(hguid[3]);
+    }
+
     data.FlushBits();
 
-    for (std::list<Player*>::iterator itr = playersToSend.begin() ; itr != playersToSend.end() ; itr++)
+    for (uint8 i = 0; i < hcount; i++)
     {
-        Player* player = (*itr);
-        ObjectGuid guid = player->GetGUID();
+        data.WriteByteSeq(hguid[2]);
+        data.WriteByteSeq(hguid[1]);
+        data << float(hplr->GetPositionY());
+        data.WriteByteSeq(hguid[5]);
+        data.WriteByteSeq(hguid[4]);
+        data.WriteByteSeq(hguid[7]);
+        data.WriteByteSeq(hguid[0]);
+        data.WriteByteSeq(hguid[6]);
+        data.WriteByteSeq(hguid[3]);
+        data << float(hplr->GetPositionX());
+    }
 
-        data.WriteByteSeq(guid[3]);
-        data.WriteByteSeq(guid[7]);
-        data << float(player->GetPositionY());
-        data.WriteByteSeq(guid[0]);
-        data.WriteByteSeq(guid[2]);
-        data.WriteByteSeq(guid[1]);
-        data.WriteByteSeq(guid[6]);
-        data << float(player->GetPositionX());
-        data.WriteByteSeq(guid[4]);
-        data.WriteByteSeq(guid[5]);
-
-        data << uint8(0); //unk
-        data << uint8(1); //unk
+    for (uint8 i = 0; i < acount; i++)
+    {
+        data.WriteByteSeq(aguid[6]);
+        data << float(aplr->GetPositionX());
+        data.WriteByteSeq(aguid[5]);
+        data.WriteByteSeq(aguid[3]);
+        data << float(aplr->GetPositionY());
+        data.WriteByteSeq(aguid[1]);
+        data.WriteByteSeq(aguid[7]);
+        data.WriteByteSeq(aguid[0]);
+        data.WriteByteSeq(aguid[2]);
+        data.WriteByteSeq(aguid[4]);
     }
 
     SendPacket(&data);
@@ -385,28 +418,29 @@ void WorldSession::HandleBattleFieldPortOpcode(WorldPacket &recvData)
     uint8 action;                       // enter battle 0x1, leave queue 0x0
     ObjectGuid guid;
 
+    recvData >> unk;
     recvData >> queueSlot;
     recvData >> time;
-    recvData >> unk;
 
-    guid[7] = recvData.ReadBit();
-    guid[4] = recvData.ReadBit();
-    guid[6] = recvData.ReadBit();
-    guid[2] = recvData.ReadBit();
-    guid[1] = recvData.ReadBit();
     guid[0] = recvData.ReadBit();
-    guid[3] = recvData.ReadBit();
     guid[5] = recvData.ReadBit();
-
+    guid[3] = recvData.ReadBit();
+    guid[2] = recvData.ReadBit();
+    guid[4] = recvData.ReadBit();
+    guid[1] = recvData.ReadBit();
     action = recvData.ReadBit();
+    guid[6] = recvData.ReadBit();
+    guid[7] = recvData.ReadBit();
 
-    recvData.ReadByteSeq(guid[4]);
-    recvData.ReadByteSeq(guid[1]);
-    recvData.ReadByteSeq(guid[3]);
+	recvData.FlushBits();
+
     recvData.ReadByteSeq(guid[0]);
-    recvData.ReadByteSeq(guid[6]);
-    recvData.ReadByteSeq(guid[5]);
+    recvData.ReadByteSeq(guid[3]);
+    recvData.ReadByteSeq(guid[4]);
     recvData.ReadByteSeq(guid[7]);
+    recvData.ReadByteSeq(guid[1]);
+    recvData.ReadByteSeq(guid[5]);
+    recvData.ReadByteSeq(guid[6]);
     recvData.ReadByteSeq(guid[2]);
 
 	sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: BattlefieldPort (Time: %u queueSlot: %u unk: %u action: %u)", time, queueSlot, unk, action);

@@ -70,22 +70,45 @@ void WorldSession::HandleTabardVendorActivateOpcode(WorldPacket& recvData)
 void WorldSession::SendTabardVendorActivate(uint64 guid)
 {
     WorldPacket data(MSG_TABARDVENDOR_ACTIVATE, 8);
-    data << guid;
+    
+	ObjectGuid l_Guid = guid;
+
+    data.WriteBit(l_Guid[7]);
+    data.WriteBit(l_Guid[0]);
+    data.WriteBit(l_Guid[3]);
+    data.WriteBit(l_Guid[6]);
+    data.WriteBit(l_Guid[4]);
+    data.WriteBit(l_Guid[1]);
+    data.WriteBit(l_Guid[5]);
+    data.WriteBit(l_Guid[2]);
+
+    data.WriteByteSeq(l_Guid[6]);
+    data.WriteByteSeq(l_Guid[2]);
+    data.WriteByteSeq(l_Guid[5]);
+    data.WriteByteSeq(l_Guid[7]);
+    data.WriteByteSeq(l_Guid[1]);
+    data.WriteByteSeq(l_Guid[0]);
+    data.WriteByteSeq(l_Guid[4]);
+    data.WriteByteSeq(l_Guid[3]);
+
     SendPacket(&data);
 }
 
 void WorldSession::HandleBankerActivateOpcode(WorldPacket& recvData)
 {
-    uint64 guid;
+	Player* p = GetPlayer();				//  Another hack, but this way WorldSession::HandleBankerActivateOpcode
+    uint64 sel_guid = p->GetSelection();	//  should never have to be updated for future patches.
+
+    //uint64 guid;
 
     sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: Received CMSG_BANKER_ACTIVATE");
 
-    recvData >> guid;
+   // recvData >> guid;
 
-    Creature* unit = GetPlayer()->GetNPCIfCanInteractWith(guid, UNIT_NPC_FLAG_BANKER);
+    Creature* unit = GetPlayer()->GetNPCIfCanInteractWith(sel_guid, UNIT_NPC_FLAG_BANKER);
     if (!unit)
     {
-        sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: HandleBankerActivateOpcode - Unit (GUID: %u) not found or you can not interact with him.", uint32(GUID_LOPART(guid)));
+        sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: HandleBankerActivateOpcode - Unit (GUID: %u) not found or you can not interact with him.", uint32(GUID_LOPART(sel_guid)));
         return;
     }
 
@@ -93,7 +116,7 @@ void WorldSession::HandleBankerActivateOpcode(WorldPacket& recvData)
     if (GetPlayer()->HasUnitState(UNIT_STATE_DIED))
         GetPlayer()->RemoveAurasByType(SPELL_AURA_FEIGN_DEATH);
 
-    SendShowBank(guid);
+    SendShowBank(sel_guid);
 }
 
 void WorldSession::SendShowBank(uint64 guid)
@@ -411,9 +434,29 @@ void WorldSession::HandleTrainerBuySpellOpcode(WorldPacket& recvData)
 void WorldSession::SendTrainerBuyFailed(uint64 guid, uint32 spellId, uint32 reason)
 {
     WorldPacket data(SMSG_TRAINER_BUY_FAILED, 16);
-    data << uint64(guid);
-    data << uint32(spellId);        // should be same as in packet from client
+    ObjectGuid l_Guid = guid;
+
     data << uint32(reason);         // 1 == "Not enough money for trainer service." 0 == "Trainer service %d unavailable."
+    data << uint32(spellId);        // should be same as in packet from client
+
+    data.WriteBit(l_Guid[0]);
+    data.WriteBit(l_Guid[3]);
+    data.WriteBit(l_Guid[6]);
+    data.WriteBit(l_Guid[1]);
+    data.WriteBit(l_Guid[2]);
+    data.WriteBit(l_Guid[5]);
+    data.WriteBit(l_Guid[7]);
+    data.WriteBit(l_Guid[4]);
+
+    data.WriteByteSeq(l_Guid[6]);
+    data.WriteByteSeq(l_Guid[2]);
+    data.WriteByteSeq(l_Guid[3]);
+    data.WriteByteSeq(l_Guid[5]);
+    data.WriteByteSeq(l_Guid[7]);
+    data.WriteByteSeq(l_Guid[4]);
+    data.WriteByteSeq(l_Guid[1]);
+    data.WriteByteSeq(l_Guid[0]);
+
     SendPacket(&data);
 }
 

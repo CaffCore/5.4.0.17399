@@ -676,8 +676,10 @@ void WorldSession::HandleGetMailList(WorldPacket& recvData)
     uint32 realCount  = 0;                                 // real mails amount
 
     WorldPacket data(SMSG_MAIL_LIST_RESULT, 200);         // guess size
-    data << uint32(0);                                      // real mail's count
-    data << uint8(0);                                       // mail's count
+
+    ByteBuffer buffer;
+
+    data.WriteBits(0, 18);                                       // mail's count
     time_t cur_time = time(NULL);
 
     for (PlayerMails::iterator itr = player->GetMailBegin(); itr != player->GetMailEnd(); ++itr)
@@ -703,74 +705,93 @@ void WorldSession::HandleGetMailList(WorldPacket& recvData)
             continue;
         }
 
-        data << uint16(next_mail_size);                    // Message size
-        data << uint32((*itr)->messageID);                 // Message ID
-        data << uint8((*itr)->messageType);                // Message Type
-
-        switch ((*itr)->messageType)
+		data.WriteBits(item_count, 17);                    // client limit is 0x10
+        data.WriteBit((*itr)->messageType == MAIL_NORMAL);
+        if((*itr)->messageType == MAIL_NORMAL)
         {
-            case MAIL_NORMAL:                               // sender guid
-                data << uint64(MAKE_NEW_GUID((*itr)->sender, 0, HIGHGUID_PLAYER));
-                break;
-            case MAIL_CREATURE:
-            case MAIL_GAMEOBJECT:
-            case MAIL_AUCTION:
-            case MAIL_CALENDAR:
-                data << uint32((*itr)->sender);              // creature/gameobject entry, auction id, calendar event id?
-                break;
+            ObjectGuid guid = MAKE_NEW_GUID((*itr)->sender, 0, HIGHGUID_PLAYER);
+
+            data.WriteBit(guid[3]);
+            data.WriteBit(guid[6]);
+            data.WriteBit(guid[4]);
+            data.WriteBit(guid[2]);
+            data.WriteBit(guid[5]);
+            data.WriteBit(guid[1]);
+            data.WriteBit(guid[0]);
+            data.WriteBit(guid[7]);
         }
+        data.WriteBit((*itr)->messageType != MAIL_NORMAL); //dword1428
+        data.WriteBits((*itr)->body.length(), 13);
+        data.WriteBits((*itr)->subject.length(), 8);
 
-        data << uint64((*itr)->COD);                         // COD
-        data << uint32(0);                                   // Package.dbc ID ?
-        data << uint32((*itr)->stationery);                  // stationery (Stationery.dbc)
-        data << uint64((*itr)->money);                       // Gold
-        data << uint32((*itr)->checked);                     // flags
-        data << float(float((*itr)->expire_time-time(NULL))/DAY); // Time
-        data << uint32((*itr)->mailTemplateId);              // mail template (MailTemplate.dbc)
-        data << (*itr)->subject;                             // Subject string - once 00, when mail type = 3, max 256
-        data << (*itr)->body;                                // message? max 8000
-        data << uint8(item_count);                           // client limit is 0x10
-
-        for (uint8 i = 0; i < item_count; ++i)
+        for(uint8 i = 0 ; i < item_count; i++)
         {
             Item* item = player->GetMItem((*itr)->items[i].item_guid);
-            // item index (0-6?)
-            data << uint8(i);
-            // item guid low?
-            data << uint32((item ? item->GetGUIDLow() : 0));
-            // entry
-            data << uint32((item ? item->GetEntry() : 0));
-            for (uint8 j = 0; j < 8; ++j)
+
+            data.WriteBit(0); //bitUnk
+            buffer << uint32((item ? item->GetSpellCharges() : 0));
+            buffer << uint32((item ? item->GetCount() : 0));// stack count
+
+            for(int y = 0 ; y < REFORGE_ENCHANTMENT_SLOT; ++y)
             {
-                data << uint32((item ? item->GetEnchantmentId((EnchantmentSlot)j) : 0));
-                data << uint32((item ? item->GetEnchantmentDuration((EnchantmentSlot)j) : 0));
-                data << uint32((item ? item->GetEnchantmentCharges((EnchantmentSlot)j) : 0));
+                buffer << uint32((item ? item->GetEnchantmentDuration((EnchantmentSlot)y) : 0));
+                buffer << uint32((item ? item->GetEnchantmentCharges((EnchantmentSlot)y) : 0));
+                buffer << uint32((item ? item->GetEnchantmentId((EnchantmentSlot)y) : 0));
             }
 
-            data << uint32(0); //string size 0
-
-            // can be negative
-            data << int32((item ? item->GetItemRandomPropertyId() : 0));
-            // unk
-            data << uint32((item ? item->GetItemSuffixFactor() : 0));
-            // stack count
-            data << uint32((item ? item->GetCount() : 0));
-            // charges
-            data << uint32((item ? item->GetSpellCharges() : 0));
-            // durability
-            data << uint32((item ? item->GetUInt32Value(ITEM_FIELD_MAXDURABILITY) : 0));
-            // durability
-            data << uint32((item ? item->GetUInt32Value(ITEM_FIELD_DURABILITY) : 0));
-            // unknown wotlk
-            data << uint8(0);
+            buffer << uint32((item ? item->GetUInt32Value(ITEM_FIELD_DURABILITY) : 0));// durability
+            buffer << uint8(i);// item index
+            buffer << uint32((item ? item->GetUInt32Value(ITEM_FIELD_MAXDURABILITY) : 0));// durability
+            buffer << uint32((item ? item->GetGUIDLow() : 0));
+            buffer << uint32((item ? item->GetEntry() : 0));// entry
+            buffer << uint32((item ? item->GetItemSuffixFactor() : 0));
+            buffer << uint32(0); //dataLen
+            //for(int z = 0 ; z < dataLen ; z++)
+            //    buffer << uint8(data[z]);
+            buffer << int32((item ? item->GetItemRandomPropertyId() : 0)); // can be negative
         }
+
+        buffer << uint32((*itr)->mailTemplateId);              // mail template (MailTemplate.dbc)
+
+        if((*itr)->messageType == MAIL_NORMAL)
+        {
+            ObjectGuid guid = MAKE_NEW_GUID((*itr)->sender, 0, HIGHGUID_PLAYER);
+
+            buffer.WriteByteSeq(guid[2]);
+            buffer.WriteByteSeq(guid[0]);
+            buffer.WriteByteSeq(guid[4]);
+            buffer.WriteByteSeq(guid[5]);
+            buffer.WriteByteSeq(guid[3]);
+            buffer.WriteByteSeq(guid[6]);
+            buffer.WriteByteSeq(guid[1]);
+            buffer.WriteByteSeq(guid[7]);
+
+            GetPlayer()->CheckSendNameData(guid);
+        }
+
+        buffer.WriteString((*itr)->subject);
+        buffer << uint32(0); //dword1440
+        buffer << float(float((*itr)->expire_time-time(NULL))/DAY); // Time
+        buffer << uint64((*itr)->COD);                         // COD
+        buffer << uint32((*itr)->checked);                     // flags
+        buffer << uint64((*itr)->money);                       // Gold
+        buffer << uint32((*itr)->messageID);                 // Message ID
+        buffer.WriteString((*itr)->body);
+        if((*itr)->messageType != MAIL_NORMAL)
+            buffer << uint32((*itr)->sender);
+        buffer << uint8((*itr)->messageType);                // Message Type
+        buffer << uint32((*itr)->stationery);                  // stationery (Stationery.dbc)
 
         ++realCount;
         ++mailsCount;
     }
 
-    data.put<uint32>(0, realCount);                         // this will display warning about undelivered mail to player if realCount > mailsCount
-    data.put<uint8>(4, mailsCount);                        // set real send mails to client
+    buffer << uint32(realCount);                                      // real mail's count
+
+    data.FlushBits();
+    data.append(buffer);
+    
+    data.PutBits(0, mailsCount, 18);                                // set real send mails to client
     SendPacket(&data);
 
     // recalculate m_nextMailDelivereTime and unReadMails

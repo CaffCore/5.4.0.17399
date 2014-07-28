@@ -36,13 +36,16 @@
 //void called when player click on auctioneer npc
 void WorldSession::HandleAuctionHelloOpcode(WorldPacket& recvData)
 {
-    uint64 guid;                                            //NPC guid
-    recvData >> guid;
+	Player* p = GetPlayer();				//  Just a hack, but this way WorldSession::HandleAuctionHelloOpcode
+    uint64 sel_guid = p->GetSelection();	//  should never have to be updated for future patches.
 
-    Creature* unit = GetPlayer()->GetNPCIfCanInteractWith(guid, UNIT_NPC_FLAG_AUCTIONEER);
+    //uint64 guid;                                            //NPC guid
+    //recvData >> guid;	
+
+    Creature* unit = GetPlayer()->GetNPCIfCanInteractWith(sel_guid, UNIT_NPC_FLAG_AUCTIONEER);
     if (!unit)
     {
-        sLog->outError(LOG_FILTER_NETWORKIO, "WORLD: HandleAuctionHelloOpcode - Unit (GUID: %u) not found or you can't interact with him.", uint32(GUID_LOPART(guid)));
+        sLog->outError(LOG_FILTER_NETWORKIO, "WORLD: HandleAuctionHelloOpcode - Unit (GUID: %u) not found or you can't interact with him.", uint32(GUID_LOPART(sel_guid)));
         return;
     }
 
@@ -50,7 +53,7 @@ void WorldSession::HandleAuctionHelloOpcode(WorldPacket& recvData)
     if (GetPlayer()->HasUnitState(UNIT_STATE_DIED))
         GetPlayer()->RemoveAurasByType(SPELL_AURA_FEIGN_DEATH);
 
-    SendAuctionHello(guid, unit);
+    SendAuctionHello(sel_guid, unit);
 }
 
 //this void causes that auction window is opened
@@ -66,7 +69,7 @@ void WorldSession::SendAuctionHello(uint64 guid, Creature* unit)
     if (!ahEntry)
         return;
 
-    WorldPacket data(MSG_AUCTION_HELLO, 12);
+    WorldPacket data(SMSG_AUCTION_HELLO_REPONSE, 12);
     ObjectGuid l_Guid = guid;
 
     data.WriteBit(l_Guid[6]);
@@ -943,7 +946,7 @@ void WorldSession::HandleAuctionListPendingSales(WorldPacket& recvData)
 {
     sLog->outDebug(LOG_FILTER_NETWORKIO, "WORLD: Received CMSG_AUCTION_LIST_PENDING_SALES");
 
-    recvData.read_skip<uint64>();
+    //recvData.read_skip<uint64>();
 	    
     WorldPacket data(SMSG_AUCTION_LIST_PENDING_SALES, 4);
     data << uint32(0);                                     // amount place holder
@@ -955,5 +958,5 @@ void WorldSession::HandleAuctionListPendingSales(WorldPacket& recvData)
     data.put<uint32>(0, count);
     data << uint32(totalcount);
     data << uint32(0);
-    //SendPacket(&data); NEED TO FIND THE CORRECT VALUES TO SEND (HAS TO BE SOMETHING DIFFERENT THAN THE OWNER OPCODE) ...
+    SendPacket(&data);
 }
