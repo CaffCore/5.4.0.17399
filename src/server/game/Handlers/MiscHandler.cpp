@@ -11,7 +11,7 @@
  * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
  * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
  * more details.
- *
+ *t
  * You should have received a copy of the GNU General Public License along
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
@@ -1393,13 +1393,10 @@ void WorldSession::HandleSetActionBarToggles(WorldPacket& recvData)
     uint8 actionBar;
 
     recvData >> actionBar;
-
-	sLog->outError(LOG_FILTER_NETWORKIO, "WorldSession::HandleSetActionBarToggles state value: %u, ignored", uint32(actionBar));
-
+    
     if (!GetPlayer())                                        // ignore until not logged (check needed because STATUS_AUTHED)
     {
         if (actionBar != 0)
-            sLog->outError(LOG_FILTER_NETWORKIO, "WorldSession::HandleSetActionBarToggles in not logged state with value: %u, ignored", uint32(actionBar));
         return;
     }
 
